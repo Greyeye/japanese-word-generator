@@ -22,7 +22,9 @@ gen/                        the repo — code only
   supabase/
     config.toml
     migrations/
-      20261017000000_jlpt_corpus_schema.sql
+      20261017040810_jlpt_corpus_initial_schema.sql
+      20261017042247_jlpt_embedding_dim_1024.sql
+      20261018000000_jlpt_match_embedding_dim.sql
   .gitignore
 
 H:\jlpt\runs\               everything GENERATED (outside the repo)
@@ -158,33 +160,59 @@ reason before counting it.
 
 ## Supabase
 
-Schema lives at `supabase/migrations/<version>_<name>.sql` — the layout the Supabase
-GitHub integration reads. The project ref is `wilmybwwljzbozotopbhx`.
+Project ref **`wilmybwljzbozotopbhx`**. Schema lives at
+`supabase/migrations/<version>_<name>.sql` — the layout the GitHub integration
+reads, and the layout `supabase db push` reads.
 
-To connect this repo:
+To apply the repo to the database (no linking needed if `SUPABASE_DB_URL` is set;
+the CLI records `version` from the filename, so the repo filenames become the
+project's migration versions):
 
-1. `git init` and push to GitHub.
-2. In the Supabase dashboard, **Project Settings → Integrations → GitHub** and point
-   it at the repo. It reads `supabase/migrations/` on push to the configured branch.
-3. For CLI work, `supabase link --project-ref wilmybwwljzbozotopbhx`, then
-   `supabase db push`.
+```powershell
+cd H:\jlpt\gen
+npx supabase db push --db-url $env:SUPABASE_DB_URL
+```
 
-The schema is a matching target: `norm_hash` (exact, normalised), `content_lemmas` +
-`form_signature` (same words and grammar, via GIN), and `embedding` (HNSW, tier 4)
-back a five-tier `match_sentence()` function. Match keys are materialised at load
-time, never computed at query time.
+To wire up the GitHub integration: push this repo, then **Project Settings →
+Integrations → GitHub** in the dashboard and install the app for this repository.
+It reads `supabase/migrations/` on push to `main`. That step is dashboard-only —
+the MCP server exposes 29 Supabase tools but none manage the GitHub app install.
 
----
+### Migrations
+
+| version | name | what |
+|---|---|---|
+| 20261017040810 | jlpt_corpus_initial_schema | 5 tables + indexes + `match_sentence()`; embedding starts at 768 |
+| 20261017042247 | jlpt_embedding_dim_1024 | widens `embedding` to 1024 (Qwen3-Embedding-0.6B) |
+| 20261018000000 | jlpt_match_embedding_dim | declares `match_sentence`'s embedding arg unconstrained |
+
+Version 3 exists because version 2 widened the *column* but left the *function
+argument* at 768 — a database rebuilt from 1+2 would have rejected the embeddings
+its own column stores. Never edit an applied migration; add one.
+
+The schema is a matching target: `norm_hash` (exact, normalised),
+`content_lemmas` + `form_signature` (same words and grammar, via GIN), and
+`embedding` (HNSW, tier 4) back the five-tier `match_sentence()`. Match keys are
+materialised at load time, never computed at query time.
 
 ## Known state
 
-- **N5 corpus: 1,230 sentences.** Two-judge consensus: 42% clean, 35% rejected by
-  both, 23% disputed. Real defect rate ~6–8% strict, ~9–16% loose.
-- **`runs/n5_corpus_verdicts.jsonl`** holds per-sentence verdicts from both judges.
-- Points still needing a routing rule: `nanji-what-time` (92% defective — the same
-  time-word bug fixed in `counter-ji-oclock`), `nai-form` (100%), `da-plain-copula`,
-  `particle-e-direction`, `i-adj-adverbial-ku`, `particle-made-until`,
-  `particle-de-means`.
-- `gpt-6.1-sol` was tested and rejected: 20× the price of `gpt-6-luna` for a 2.5×
-  higher real error rate, and it writes N1-literary Japanese when the product targets
-  N5–N3.
+- **The database is empty by design.** The project was dropped and rebuilt from
+  these migrations, so `schema_migrations` holds exactly the three rows above and
+  the five tables have 0 rows. Everything needed to reload lives in `runs/`:
+  `v11_sentences.jsonl` (1,166 — what was previously loaded) and
+  `strip_sentences.jsonl` (1,230 — the better, later corpus, never loaded).
+- **N5 corpus quality.** Two-judge consensus over the 1,230: 42% clean, 35%
+  rejected by both, 23% disputed. Real defect rate ~6–8% strict, ~9–16% loose.
+  Per-sentence verdicts are in `runs/n5_corpus_verdicts.jsonl`.
+- **Of the 426 consensus-rejected sentences, 232 are valid Japanese tagged to a
+  grammar point they do not exercise** — a re-labelling job, not a discard.
+- **Points still needing a routing rule:** `nanji-what-time` (92% defective — the
+  same time-word bug fixed in `counter-ji-oclock`), `nai-form` (100%),
+  `da-plain-copula`, `particle-e-direction`, `i-adj-adverbial-ku`,
+  `particle-made-until`, `particle-de-means`.
+- **`gpt-6.1-sol` was tested and rejected:** 20x the price of `gpt-6-luna` for a
+  2.5x higher real error rate, and it writes N1-literary Japanese when the product
+  targets N5-N3.
+- **Untested:** `loader.py` and `push.py` against the rebuilt schema. They compile
+  and their paths resolve, but the load has not been exercised since the rebuild.

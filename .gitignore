@@ -17,6 +17,11 @@ load/
 *.bak
 *.prev
 
+# ---- supabase cli scratch ---------------------------------------------
+# created by `supabase db push` / `supabase link`; holds no secrets, but is
+# local tool state and should not be tracked.
+supabase/.temp/
+
 # ---- python --------------------------------------------------------------
 __pycache__/
 *.pyc
