@@ -1,0 +1,6 @@
+{
+ "_comment": "Hand corrections to noun_classes.json. Applied at load time by guardrails.load_classes(), so no regeneration is needed. Only entries that were actually wrong in a way that changes generated sentences.",
+ "足": {"kind": ["BODY"], "shape": ["LONG"], "meaning": "foot, leg"},
+ "頭": {"kind": ["BODY"], "shape": ["ROUND"], "meaning": "head"},
+ "お金": {"kind": ["UNIT"], "shape": [], "meaning": "money"}
+}

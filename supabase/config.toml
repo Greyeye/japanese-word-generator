@@ -1,0 +1,4 @@
+# Supabase project config. Only project_id is set here; everything else takes the
+# CLI's defaults. If you later run `supabase init`, it will fill in the rest --
+# `supabase link --project-ref <ref>` then connects this repo to the remote project.
+project_id = "jlpt-corpus"

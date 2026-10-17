@@ -1,0 +1,36 @@
+# ---- generated artefacts -------------------------------------------------
+# Everything the pipeline produces lives OUTSIDE the repo (H:\jlpt\runs by default).
+# The entries below catch the cases where someone runs a script with --out . or
+# from inside the repo, so a stray run never lands in version control.
+attempts*.jsonl
+*_sentences.jsonl
+*_rejected.jsonl
+*_val.txt
+*.log
+ledger*.json
+judged_*.jsonl
+kana_fix.json
+noun_types.json
+calib_*.json
+calib_*.jsonl
+load/
+*.bak
+*.prev
+
+# ---- python --------------------------------------------------------------
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ---- secrets -------------------------------------------------------------
+# The API token is read out of generate.py by the other scripts. If you ever move
+# it to a config file, that file must not be committed.
+.env
+*_token.txt
+
+# ---- editors / os --------------------------------------------------------
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

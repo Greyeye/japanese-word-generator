@@ -1,0 +1,2861 @@
+{
+ "青": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "blue"
+ },
+ "赤": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "red"
+ },
+ "秋": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "autumn"
+ },
+ "朝": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "morning"
+ },
+ "朝御飯": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "breakfast"
+ },
+ "あさって": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "day after tomorrow"
+ },
+ "足": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "foot, leg"
+ },
+ "明日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "tomorrow"
+ },
+ "あそこ": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "over there"
+ },
+ "頭": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "head"
+ },
+ "後": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "afterwards"
+ },
+ "兄": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "(humble) older brother"
+ },
+ "姉": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "(humble) older sister"
+ },
+ "アパート": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "apartment"
+ },
+ "雨": {
+  "kind": [
+   "NATURE"
+  ],
+  "shape": [],
+  "meaning": "rain"
+ },
+ "飴": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "candy"
+ },
+ "家": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "house"
+ },
+ "いくら": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [],
+  "meaning": "how much?"
+ },
+ "池": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "pond"
+ },
+ "医者": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "medical doctor"
+ },
+ "いす": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "chair"
+ },
+ "一": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [],
+  "meaning": "one"
+ },
+ "一日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "first of month"
+ },
+ "いちばん": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "best, first"
+ },
+ "五日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "five days, fifth day"
+ },
+ "一緒": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "together"
+ },
+ "五つ": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [],
+  "meaning": "five"
+ },
+ "いつも": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "always"
+ },
+ "犬": {
+  "kind": [
+   "ANIMAL"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "dog"
+ },
+ "今": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "now"
+ },
+ "妹": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "(humble) younger sister"
+ },
+ "入口": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "entrance"
+ },
+ "色": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "colour"
+ },
+ "上": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "on top of"
+ },
+ "後ろ": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "behind"
+ },
+ "歌": {
+  "kind": [
+   "EVENT"
+  ],
+  "shape": [],
+  "meaning": "song"
+ },
+ "海": {
+  "kind": [
+   "NATURE"
+  ],
+  "shape": [],
+  "meaning": "sea"
+ },
+ "上着": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "jacket"
+ },
+ "絵": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "picture"
+ },
+ "映画": {
+  "kind": [
+   "EVENT"
+  ],
+  "shape": [],
+  "meaning": "movie"
+ },
+ "映画館": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "cinema"
+ },
+ "英語": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "English language"
+ },
+ "駅": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "station"
+ },
+ "エレベーター": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "elevator"
+ },
+ "鉛筆": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "pencil"
+ },
+ "大勢": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "great number of people"
+ },
+ "お母さん": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "(honorable) mother"
+ },
+ "お菓子": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "sweets, candy"
+ },
+ "お金": {
+  "kind": [
+   "UNIT",
+   "SUBSTANCE"
+  ],
+  "shape": [],
+  "meaning": "money"
+ },
+ "奥さん": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "(honorable) wife"
+ },
+ "お酒": {
+  "kind": [
+   "FOOD",
+   "SUBSTANCE"
+  ],
+  "shape": [],
+  "meaning": "alcohol, rice wine"
+ },
+ "お皿": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "plate, dish"
+ },
+ "おじいさん": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "grandfather, male senior citizen"
+ },
+ "おじさん": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "uncle, middle aged gentleman"
+ },
+ "お手洗い": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "bathroom"
+ },
+ "お父さん": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "(honorable) father"
+ },
+ "弟": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "younger brother"
+ },
+ "男": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "Man"
+ },
+ "男の子": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "Boy"
+ },
+ "一昨日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "day before yesterday"
+ },
+ "一昨年": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "year before last"
+ },
+ "おなか": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "stomach"
+ },
+ "お兄さん": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "(honorable) older brother"
+ },
+ "お姉さん": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "(honorable) older sister"
+ },
+ "おばあさん": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "grandmother, female senior-citizen"
+ },
+ "伯母さん": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "Aunt"
+ },
+ "お風呂": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "Bath"
+ },
+ "お弁当": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "boxed lunch"
+ },
+ "おまわりさん": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "friendly term for policeman"
+ },
+ "音楽": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "Music"
+ },
+ "女": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "Woman"
+ },
+ "女の子": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "Girl"
+ },
+ "外国": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "foreign country"
+ },
+ "外国人": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "Foreigner"
+ },
+ "会社": {
+  "kind": [
+   "PLACE",
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "Company"
+ },
+ "階段": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "Stairs"
+ },
+ "鍵": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "Key"
+ },
+ "学生": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "Student"
+ },
+ "傘": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "Umbrella"
+ },
+ "風": {
+  "kind": [
+   "NATURE",
+   "SUBSTANCE"
+  ],
+  "shape": [],
+  "meaning": "Wind"
+ },
+ "風邪": {
+  "kind": [
+   "EVENT",
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "a cold"
+ },
+ "家族": {
+  "kind": [
+   "PERSON",
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "Family"
+ },
+ "方": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "Used for comparison."
+ },
+ "学校": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "School"
+ },
+ "カップ": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "CONTAINER",
+   "ROUND"
+  ],
+  "meaning": "Cup"
+ },
+ "家庭": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "Household"
+ },
+ "角": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "a corner"
+ },
+ "鞄": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "bag, basket"
+ },
+ "花瓶": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "a vase"
+ },
+ "紙": {
+  "kind": [
+   "OBJECT",
+   "SUBSTANCE"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "paper"
+ },
+ "声": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "Voice"
+ },
+ "コート": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "coat, tennis court"
+ },
+ "コーヒー": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "Coffee"
+ },
+ "午後": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "afternoon"
+ },
+ "九日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "nine days, ninth day"
+ },
+ "九つ": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "Nine"
+ },
+ "午前": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "morning"
+ },
+ "コップ": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "CONTAINER"
+  ],
+  "meaning": "a glass"
+ },
+ "今年": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "this year"
+ },
+ "言葉": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "word, language"
+ },
+ "子供": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "Child"
+ },
+ "御飯": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "cooked rice, meal"
+ },
+ "今月": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "this month"
+ },
+ "今週": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "this week"
+ },
+ "今晩": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "this evening"
+ },
+ "財布": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "Wallet"
+ },
+ "魚": {
+  "kind": [
+   "ANIMAL"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "Fish"
+ },
+ "先": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "the future, previous"
+ },
+ "雑誌": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "Magazine"
+ },
+ "砂糖": {
+  "kind": [
+   "SUBSTANCE"
+  ],
+  "shape": [],
+  "meaning": "Sugar"
+ },
+ "さ来年": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "year after next"
+ },
+ "塩": {
+  "kind": [
+   "SUBSTANCE"
+  ],
+  "shape": [],
+  "meaning": "Salt"
+ },
+ "時間": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "Time"
+ },
+ "辞書": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "Dictionary"
+ },
+ "下": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "Below"
+ },
+ "自転車": {
+  "kind": [
+   "VEHICLE"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "Bicycle"
+ },
+ "自動車": {
+  "kind": [
+   "VEHICLE"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "Automobile"
+ },
+ "字引": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "Dictionary"
+ },
+ "写真": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "photograph"
+ },
+ "シャツ": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "Shirt"
+ },
+ "シャワー": {
+  "kind": [
+   "EVENT"
+  ],
+  "shape": [],
+  "meaning": "Shower"
+ },
+ "十": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [],
+  "meaning": "Ten"
+ },
+ "宿題": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "homework"
+ },
+ "しょうゆ": {
+  "kind": [
+   "FOOD",
+   "SUBSTANCE"
+  ],
+  "shape": [],
+  "meaning": "soy sauce"
+ },
+ "食堂": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "dining hall"
+ },
+ "白": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "White"
+ },
+ "新聞": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "newspaper"
+ },
+ "水曜日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "Wednesday"
+ },
+ "スカート": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "Skirt"
+ },
+ "ストーブ": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "Heater"
+ },
+ "スプーン": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "Spoon"
+ },
+ "スポーツ": {
+  "kind": [
+   "EVENT"
+  ],
+  "shape": [],
+  "meaning": "Sport"
+ },
+ "ズボン": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "Trousers"
+ },
+ "スリッパ": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "Slippers"
+ },
+ "背": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "height, stature"
+ },
+ "生徒": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "Pupil"
+ },
+ "セーター": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "sweater, jumper"
+ },
+ "せっけん": {
+  "kind": [
+   "SUBSTANCE"
+  ],
+  "shape": [],
+  "meaning": "soap"
+ },
+ "背広": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "business suit"
+ },
+ "ゼロ": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "Zero"
+ },
+ "先月": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "last month"
+ },
+ "先週": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "last week"
+ },
+ "先生": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "teacher, doctor"
+ },
+ "全部": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "All"
+ },
+ "外": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "Outside"
+ },
+ "側": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "near, beside"
+ },
+ "空": {
+  "kind": [
+   "NATURE"
+  ],
+  "shape": [],
+  "meaning": "Sky"
+ },
+ "大学": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "university"
+ },
+ "大使館": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "embassy"
+ },
+ "台所": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "kitchen"
+ },
+ "タクシー": {
+  "kind": [
+   "VEHICLE"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "taxi"
+ },
+ "縦": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "length,height"
+ },
+ "建物": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "building"
+ },
+ "たばこ": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "tobacco,cigarettes"
+ },
+ "食べ物": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "food"
+ },
+ "卵": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "egg"
+ },
+ "誕生日": {
+  "kind": [
+   "EVENT"
+  ],
+  "shape": [],
+  "meaning": "birthday"
+ },
+ "近く": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "near"
+ },
+ "地下鉄": {
+  "kind": [
+   "VEHICLE"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "underground train"
+ },
+ "地図": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "map"
+ },
+ "茶色": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "brown"
+ },
+ "ちゃわん": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "rice bowl"
+ },
+ "次": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "next"
+ },
+ "机": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "desk"
+ },
+ "手": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "hand"
+ },
+ "テープ": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "tape"
+ },
+ "テーブル": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "table"
+ },
+ "テープレコーダー": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "tape recorder"
+ },
+ "手紙": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "letter"
+ },
+ "出口": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "exit"
+ },
+ "デパート": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "department store"
+ },
+ "テレビ": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "television"
+ },
+ "天気": {
+  "kind": [
+   "NATURE"
+  ],
+  "shape": [],
+  "meaning": "weather"
+ },
+ "電気": {
+  "kind": [
+   "SUBSTANCE"
+  ],
+  "shape": [],
+  "meaning": "electricity,electric light"
+ },
+ "電車": {
+  "kind": [
+   "VEHICLE"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "electric train"
+ },
+ "戸": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "Japanese style door"
+ },
+ "ドア": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "Western style door"
+ },
+ "トイレ": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "toilet"
+ },
+ "動物": {
+  "kind": [
+   "ANIMAL"
+  ],
+  "shape": [],
+  "meaning": "animal"
+ },
+ "十日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "ten days,the tenth day"
+ },
+ "時々": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "sometimes"
+ },
+ "時計": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "watch,clock"
+ },
+ "所": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "place"
+ },
+ "年": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "year"
+ },
+ "図書館": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "library"
+ },
+ "隣": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "next door to"
+ },
+ "友達": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "friend"
+ },
+ "土曜日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "Saturday"
+ },
+ "鳥": {
+  "kind": [
+   "ANIMAL"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "bird"
+ },
+ "とり肉": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "chicken meat"
+ },
+ "ナイフ": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "knife"
+ },
+ "中": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "middle"
+ },
+ "夏": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "summer"
+ },
+ "夏休み": {
+  "kind": [
+   "EVENT"
+  ],
+  "shape": [],
+  "meaning": "summer holiday"
+ },
+ "七つ": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "seven"
+ },
+ "七日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "seven days,the seventh day"
+ },
+ "名前": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "name"
+ },
+ "何": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "what"
+ },
+ "肉": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "meat"
+ },
+ "西": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "west"
+ },
+ "日曜日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "Sunday"
+ },
+ "荷物": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "luggage"
+ },
+ "ニュース": {
+  "kind": [
+   "EVENT"
+  ],
+  "shape": [],
+  "meaning": "news"
+ },
+ "庭": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "garden"
+ },
+ "ネクタイ": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "tie,necktie"
+ },
+ "猫": {
+  "kind": [
+   "ANIMAL"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "cat"
+ },
+ "飲み物": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "a drink"
+ },
+ "歯": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "tooth"
+ },
+ "パーティー": {
+  "kind": [
+   "EVENT"
+  ],
+  "shape": [],
+  "meaning": "party"
+ },
+ "灰皿": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "ashtray"
+ },
+ "葉書": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "postcard"
+ },
+ "箱": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "CONTAINER"
+  ],
+  "meaning": "box"
+ },
+ "橋": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "bridge"
+ },
+ "箸": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "chopsticks"
+ },
+ "初め": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "beginning"
+ },
+ "始め": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "beginning"
+ },
+ "初めて": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "for the first time"
+ },
+ "バス": {
+  "kind": [
+   "VEHICLE"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "bus"
+ },
+ "バター": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "butter"
+ },
+ "二十歳": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "20 years old,20th year"
+ },
+ "二十日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "twenty days,twentieth"
+ },
+ "花": {
+  "kind": [
+   "NATURE"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "flower"
+ },
+ "鼻": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "nose"
+ },
+ "話": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "talk,story"
+ },
+ "春": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "spring"
+ },
+ "晴れ": {
+  "kind": [
+   "NATURE"
+  ],
+  "shape": [],
+  "meaning": "clear weather"
+ },
+ "半": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "half"
+ },
+ "晩": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "evening"
+ },
+ "パン": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "bread"
+ },
+ "ハンカチ": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "handkerchief"
+ },
+ "番号": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "number"
+ },
+ "晩御飯": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "evening meal"
+ },
+ "半分": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "half minute"
+ },
+ "東": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "east"
+ },
+ "飛行機": {
+  "kind": [
+   "VEHICLE"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "aeroplane"
+ },
+ "左": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "left hand side"
+ },
+ "人": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "person"
+ },
+ "一つ": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "one"
+ },
+ "一月": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "one month"
+ },
+ "一人": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "one person"
+ },
+ "病院": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "hospital"
+ },
+ "病気": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "illness"
+ },
+ "昼": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "noon, daytime"
+ },
+ "昼御飯": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "midday meal"
+ },
+ "フィルム": {
+  "kind": [
+   "SUBSTANCE"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "roll of film"
+ },
+ "封筒": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "envelope"
+ },
+ "フォーク": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "fork"
+ },
+ "服": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "clothes"
+ },
+ "豚肉": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "pork"
+ },
+ "二人": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "two people"
+ },
+ "二日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "two days, second day of the month"
+ },
+ "冬": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "winter"
+ },
+ "風呂": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "CONTAINER"
+  ],
+  "meaning": "bath"
+ },
+ "文章": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "sentence,text"
+ },
+ "ページ": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "page"
+ },
+ "ベッド": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "bed"
+ },
+ "ペット": {
+  "kind": [
+   "ANIMAL"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "pet"
+ },
+ "部屋": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "room"
+ },
+ "辺": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "area"
+ },
+ "ペン": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "pen"
+ },
+ "ボールペン": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG",
+   "MACHINE"
+  ],
+  "meaning": "ball-point pen"
+ },
+ "ほか": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "other, the rest"
+ },
+ "ポケット": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "pocket"
+ },
+ "ボタン": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "button"
+ },
+ "ホテル": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "hotel"
+ },
+ "本": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "book"
+ },
+ "本棚": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "bookshelves"
+ },
+ "毎朝": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "every morning"
+ },
+ "毎月": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "every month"
+ },
+ "毎週": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "every week"
+ },
+ "毎日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "every day"
+ },
+ "毎年": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "every year"
+ },
+ "毎晩": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "every night"
+ },
+ "前": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "before"
+ },
+ "町": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "town,city"
+ },
+ "窓": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "window"
+ },
+ "万": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [],
+  "meaning": "ten thousand"
+ },
+ "万年筆": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "fountain pen"
+ },
+ "右": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "right side"
+ },
+ "水": {
+  "kind": [
+   "SUBSTANCE"
+  ],
+  "shape": [],
+  "meaning": "water"
+ },
+ "店": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "shop"
+ },
+ "道": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "street"
+ },
+ "三日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "three days, third day of the month"
+ },
+ "三つ": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "three"
+ },
+ "緑": {
+  "kind": [
+   "NATURE"
+  ],
+  "shape": [],
+  "meaning": "green"
+ },
+ "皆さん": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "everyone"
+ },
+ "南": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "south"
+ },
+ "耳": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "ear"
+ },
+ "みんな": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "everyone"
+ },
+ "六日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "six days, sixth day of the month"
+ },
+ "向こう": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "over there"
+ },
+ "六つ": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "six"
+ },
+ "村": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "village"
+ },
+ "目": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "ROUND"
+  ],
+  "meaning": "eye"
+ },
+ "メートル": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [],
+  "meaning": "metre"
+ },
+ "眼鏡": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "glasses"
+ },
+ "木曜日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "Thursday"
+ },
+ "物": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "thing"
+ },
+ "門": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "gate"
+ },
+ "問題": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "problem"
+ },
+ "八百屋": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "greengrocer"
+ },
+ "野菜": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "vegetable"
+ },
+ "休み": {
+  "kind": [
+   "EVENT"
+  ],
+  "shape": [],
+  "meaning": "rest,holiday"
+ },
+ "八つ": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "eight"
+ },
+ "山": {
+  "kind": [
+   "NATURE"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "mountain"
+ },
+ "夕方": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "evening"
+ },
+ "夕飯": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "dinner"
+ },
+ "郵便局": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "post office"
+ },
+ "昨夜": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "last night"
+ },
+ "雪": {
+  "kind": [
+   "NATURE"
+  ],
+  "shape": [],
+  "meaning": "snow"
+ },
+ "八日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "eight days, eighth day of the month"
+ },
+ "洋服": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "western-style clothes"
+ },
+ "横": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "beside,side,width"
+ },
+ "四日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "four days, fouth day of the month"
+ },
+ "四つ": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [],
+  "meaning": "four"
+ },
+ "夜": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "evening,night"
+ },
+ "来月": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "next month"
+ },
+ "来週": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "next week"
+ },
+ "来年": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "next year"
+ },
+ "ラジオ": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "radio"
+ },
+ "ラジカセ": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "radio cassette player"
+ },
+ "ラジオカセット": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "radio cassette player"
+ },
+ "留学生": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "overseas student"
+ },
+ "両親": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "both parents"
+ },
+ "零": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "zero"
+ },
+ "冷蔵庫": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "refrigerator"
+ },
+ "レコード": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT",
+   "ROUND"
+  ],
+  "meaning": "record"
+ },
+ "レストラン": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "restaurant"
+ },
+ "廊下": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "corridor"
+ },
+ "ワイシャツ": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "business shirt"
+ },
+ "私": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "(humble) I,myself"
+ },
+ "カメラ": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "camera"
+ },
+ "火曜日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "Tuesday"
+ },
+ "体": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "Body"
+ },
+ "カレー": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "Curry"
+ },
+ "カレンダー": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "calendar"
+ },
+ "川": {
+  "kind": [
+   "NATURE"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "River"
+ },
+ "河": {
+  "kind": [
+   "NATURE"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "River"
+ },
+ "漢字": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "Chinese character"
+ },
+ "木": {
+  "kind": [
+   "NATURE"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "tree, wood"
+ },
+ "北": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "North"
+ },
+ "ギター": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "LONG"
+  ],
+  "meaning": "Guitar"
+ },
+ "喫茶店": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "coffee lounge"
+ },
+ "切手": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "postage stamp"
+ },
+ "切符": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [
+   "FLAT"
+  ],
+  "meaning": "Ticket"
+ },
+ "昨日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "Yesterday"
+ },
+ "牛肉": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "Beef"
+ },
+ "牛乳": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [
+   "CONTAINER"
+  ],
+  "meaning": "Milk"
+ },
+ "今日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "Today"
+ },
+ "教室": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "Classroom"
+ },
+ "兄弟": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "(humble) siblings"
+ },
+ "去年": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "last year"
+ },
+ "キロ": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [],
+  "meaning": "Kilogram"
+ },
+ "キログラム": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [],
+  "meaning": "Kilogram"
+ },
+ "キロメートル": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [],
+  "meaning": "Kilometer"
+ },
+ "銀行": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "Bank"
+ },
+ "金曜日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "Friday"
+ },
+ "薬": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "medicine"
+ },
+ "果物": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "Fruit"
+ },
+ "口": {
+  "kind": [
+   "OBJECT"
+  ],
+  "shape": [],
+  "meaning": "mouth, opening"
+ },
+ "靴": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [],
+  "meaning": "Shoes"
+ },
+ "靴下": {
+  "kind": [
+   "CLOTHING"
+  ],
+  "shape": [],
+  "meaning": "Socks"
+ },
+ "国": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "Country"
+ },
+ "曇り": {
+  "kind": [
+   "NATURE"
+  ],
+  "shape": [],
+  "meaning": "cloudy weather"
+ },
+ "クラス": {
+  "kind": [
+   "EVENT"
+  ],
+  "shape": [],
+  "meaning": "Class"
+ },
+ "グラム": {
+  "kind": [
+   "UNIT"
+  ],
+  "shape": [],
+  "meaning": "Gram"
+ },
+ "車": {
+  "kind": [
+   "VEHICLE"
+  ],
+  "shape": [
+   "MACHINE"
+  ],
+  "meaning": "car, vehicle"
+ },
+ "黒": {
+  "kind": [
+   "ABSTRACT"
+  ],
+  "shape": [],
+  "meaning": "Black"
+ },
+ "警官": {
+  "kind": [
+   "PERSON"
+  ],
+  "shape": [],
+  "meaning": "policeman"
+ },
+ "今朝": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "this morning"
+ },
+ "月曜日": {
+  "kind": [
+   "TIME"
+  ],
+  "shape": [],
+  "meaning": "Monday"
+ },
+ "玄関": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "entry hall"
+ },
+ "公園": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "Park"
+ },
+ "交差点": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "intersection"
+ },
+ "紅茶": {
+  "kind": [
+   "FOOD"
+  ],
+  "shape": [],
+  "meaning": "black tea"
+ },
+ "交番": {
+  "kind": [
+   "PLACE"
+  ],
+  "shape": [],
+  "meaning": "police box"
+ }
+}
