@@ -55,13 +55,38 @@ Nothing generated is written into the repo, and `.gitignore` catches strays.
 | 0b | `classify_nouns.py` | model-assisted noun typing → `noun_classes.json` (resumable, `BATCH=25`) |
 | 1 | `generate2.py` | guarded generation: POS-routed word pool + ledger rotation + retry |
 | 2 | `validate.py` | structural checks only (identity, length, dedup, predicate) |
-| 3 | `judge.py` | retrieval-grounded model judge → `valid` / `invalid` / `no_verdict` |
+| 3 | `judge.py` | binary model judge → `valid` / `invalid` / `no_verdict` (superseded) |
+| 3b | `rubric_judge.py` | **multi-dimensional** judge: 6 verdicts + target span, codes derived |
 | 4 | `kana_audit.py` → `repair_kana.py` | curated kana-spelling audit and repair |
 | 5 | `loader.py` → `push.py` | emit INSERT batches to `runs/load/`, then load |
 
 Supporting: `guardrails.py` (pools, ledger, prompts — imported by `generate2`),
 `ab_retry.py` (measured the retry-context fix), `compare_judge.py` (judge agreement),
 `semtypes.py`, `demo_match.py`.
+
+### Judge
+
+```powershell
+python rubric_judge.py --in sentences.jsonl --out verdicts.jsonl `
+  --model openai/gpt-6-luna --batch 6
+```
+
+Six dimensions, each `pass` / `fail` / `uncertain`:
+
+```
+grammar_correct  meaning_coherent  target_used  natural  level_ok  register_ok
+```
+
+`reason_codes`, `primary_defect` and `overall` are **derived in code from the
+dimensions**, never supplied by the model. That is deliberate: the binary judge
+produced 40 flags whose own written reason conceded the sentence was correct
+(「誤りとは言えない」/「問題はない」) while marking it invalid. A summary field the
+model can contradict is a summary field it will contradict. Across 2,554 verdicts
+this design produced **0** `fail`-without-a-code and **0** `pass`-with-a-code.
+
+Every verdict also carries the **target span**, which is verified as a literal
+substring of the sentence — a checkable artefact instead of another opinion.
+
 
 ### Generate
 
@@ -158,6 +183,83 @@ reason before counting it.
 
 ---
 
+## What the rubric judge measured
+
+2,554 verdicts over two models (`gpt-6-luna`, `claude-sonnet-5.5`) on 426 sentences
+both binary judges had already rejected:
+
+| dimension | luna | sonnet |
+|---|---|---|
+| **target_used** | **59.9%** | **55.4%** |
+| natural | 28.4% | 34.9% |
+| meaning_coherent | 15.5% | 22.4% |
+| level_ok | 3.8% | **17.2%** |
+| register_ok | 14.6% | 9.0% |
+| grammar_correct | 7.3% | 5.0% |
+
+**The dominant defect is that the sentence does not use its target grammar — 55–60%.
+Broken Japanese is 5–7%.** The corpus's problem is pattern compliance, not Japanese
+quality. A binary verdict reported all of that as a single `ok: false`.
+
+`level_ok` is the **least reliable** dimension: 3.8% vs 17.2% is a 4.5× spread,
+by far the widest. Neither model holds a trustworthy N5 kanji/vocabulary list, and
+sonnet flagged 切符 (符) and 風呂 (風) as above N5. Inject an explicit list or treat
+`LEVEL` as non-blocking — filtering `LEVEL`/`REGISTER` out of `reason_codes` moves
+arm A from 7.7% to 3.5%.
+
+Against an independent single-label classification the derived codes agree on
+50–54% exactly, but recover `WRONGPAT` at **92–93%** — reliable where it matters
+most, divergent only in the tail, where the two schemes aren't doing the same task.
+
+### Regeneration beats correction (measured twice)
+
+426 consensus-rejected sentences, two arms with **matched prompts** (same model,
+same system prompt, same context; only the instruction differs):
+
+| defect class (n) | A regenerate | B correct |
+|---|---|---|
+| WRONGPAT — right Japanese, wrong pattern (197) | 11.2% | 22.8% |
+| NUANCE — pattern used, wrong nuance (128) | 9.4% | 15.6% |
+| BROKEN — Japanese itself wrong (84) | 6.0% | 17.9% |
+| **near-miss pool (336)** | **11.6%** | **19.6%** |
+| **broken pool (84)** | **6.0%** | **17.9%** |
+
+Paired McNemar p=2.2e-4 and p=4.8e-9. `gpt-6-sol` judged independently and agreed.
+The rubric judge then reconfirmed it against two more judges.
+
+**Correction is not a weaker version of regeneration — it is worse, everywhere.**
+A minimal edit is anchored to the rejected sentence, and the rejection was usually
+about the content *frame*, so the edit preserves the defect:
+「魚はとても大きかったです」→「魚は今日のお昼でした」 (nonsense), where regeneration
+produced 「昼ご飯はカレーでした」.
+
+Arm B's signature failure is **NUANCE** (4.9–9.2% vs A's 0.9–1.6%): the pattern is
+present but used with the wrong nuance — patched surface, unchanged frame. Arm A's
+signature weakness is **LEVEL** (4.9%): valid Japanese above N5 (`十分` for ten
+minutes is ambiguous じゅっぷん/じゅうぶん; `絵を書く` should be 描く).
+
+Note the constraint fear was **unfounded**: arm B preserved the pattern (97.7% vs
+98.1% for A) and length (100% both) — the damage was semantic, invisible to
+mechanical checks, and showed up as vocabulary like 一部 / 見つける / 答え.
+
+### Judge noise floor
+
+On the 44 sentences where both arms emitted **byte-identical** text, batched
+verdicts still disagreed 2–4% of the time. Batching makes a verdict depend on batch
+composition, and the model notices within-batch duplication. Effect sizes here are
+8–13pp, well above it, but any comparison should be paired and per-item, not
+aggregate. `--batch 1` for calibration.
+
+### Reasoning cannot be disabled everywhere
+
+`claude-sonnet-5.5` and `gpt-6.1-sol` both 400 on `reasoning: {"enabled": false}`
+with *"Reasoning is mandatory for this endpoint and cannot be disabled."* Use
+`reasoning: {"exclude": true}` and give the call an 8k budget. This matters for
+cost: luna judges 2,554 verdicts for **$0.06**, sonnet for **$3.30** — ~45×, because
+sonnet's thinking is billed as output. At 100k sentences that is ~$7 versus ~$390.
+
+---
+
 ## Supabase
 
 Project ref **`wilmybwljzbozotopbhx`**. Schema lives at
@@ -197,22 +299,29 @@ materialised at load time, never computed at query time.
 
 ## Known state
 
-- **The database is empty by design.** The project was dropped and rebuilt from
-  these migrations, so `schema_migrations` holds exactly the three rows above and
-  the five tables have 0 rows. Everything needed to reload lives in `runs/`:
-  `v11_sentences.jsonl` (1,166 — what was previously loaded) and
-  `strip_sentences.jsonl` (1,230 — the better, later corpus, never loaded).
-- **N5 corpus quality.** Two-judge consensus over the 1,230: 42% clean, 35%
-  rejected by both, 23% disputed. Real defect rate ~6–8% strict, ~9–16% loose.
-  Per-sentence verdicts are in `runs/n5_corpus_verdicts.jsonl`.
-- **Of the 426 consensus-rejected sentences, 232 are valid Japanese tagged to a
-  grammar point they do not exercise** — a re-labelling job, not a discard.
-- **Points still needing a routing rule:** `nanji-what-time` (92% defective — the
-  same time-word bug fixed in `counter-ji-oclock`), `nai-form` (100%),
-  `da-plain-copula`, `particle-e-direction`, `i-adj-adverbial-ku`,
-  `particle-made-until`, `particle-de-means`.
-- **`gpt-6.1-sol` was tested and rejected:** 20x the price of `gpt-6-luna` for a
-  2.5x higher real error rate, and it writes N1-literary Japanese when the product
-  targets N5-N3.
-- **Untested:** `loader.py` and `push.py` against the rebuilt schema. They compile
-  and their paths resolve, but the load has not been exercised since the rebuild.
+- **The database is empty by design.** Rebuilt from these migrations, so
+  `schema_migrations` holds exactly the three rows above and the five tables have 0
+  rows. Nothing has been loaded since the rebuild.
+- **N5 corpus quality, two ways of measuring.** Binary two-judge consensus over the
+  1,230-sentence corpus: 42% clean, 35% rejected by both, 23% disputed; real defect
+  ~6–8% strict, ~9–16% loose. The rubric judge over 426 of those rejects says the
+  dominant defect is `target_used` at 55–60%. The corpus predates several routing
+  fixes, so its rates are inflated relative to a fresh run.
+- **Of the 426 consensus-rejected, 232 are valid Japanese tagged to a grammar point
+  they do not exercise** — a re-labelling job, not a discard (520 → ~750 usable).
+- **Points known to need a routing rule:** `nanji-what-time` (~92% — the same
+  time-word bug fixed in `counter-ji-oclock`; needs both `CLASS_RULES` and a
+  `targets.json` `frame`), `nai-form` (100%), `da-plain-copula` (80%),
+  `particle-e-direction` (75%), `i-adj-adverbial-ku` (74%), `particle-made-until`
+  (73%), `particle-de-means` (71%). The remaining ~70 points are unranked.
+- **Fixed and verified:** `counter-ji-oclock`, `kara-cause`, `jikan-time-duration`,
+  `location-nouns-ue-shita`, `na-adjective-negative`, `ikutsu-how-many`.
+- **`gpt-6.1-sol` rejected:** 20× the price of `gpt-6-luna` for a 2.5× higher real
+  error rate, and it writes N1-literary Japanese when the product targets N5–N3.
+- **ChatGPT/Codex subscriptions do not help here.** Plus includes Codex, but Codex
+  is an agent allowance, not API access — on Plus the GPT-6 Luna lane is 350–3,000
+  *local messages* per 5h with an unpublished weekly cap, so 200k verdicts would need
+  ~2.3 days of continuous best-case allowance with none left for real work. The whole
+  100k corpus costs ~$15 at API rates.
+- **Untested (deliberately):** `loader.py` and `push.py` against the rebuilt schema.
+  They compile and their paths resolve, but nothing has been loaded.
