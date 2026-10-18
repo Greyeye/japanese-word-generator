@@ -124,103 +124,123 @@ def vec(v):
     return "null" if v is None else "'[" + ",".join(f"{x:.6f}" for x in v) + "]'::vector"
 
 
-# ---- read ------------------------------------------------------------------
-src_file = os.path.join(RUNS, "v11_sentences.jsonl")
-rows = []
-for line in open(src_file, encoding="utf-8"):
-    r = json.loads(line)
-    if r.get("status") in ("validated", "needs_review"):
-        rows.append(r)
+def arg(name, default=None):
+    a = sys.argv
+    if name not in a:
+        return default
+    i = a.index(name) + 1
+    return a[i] if i < len(a) else True
 
-# de-duplicate on norm_hash: keep the first, they are the same sentence
-seen, kept = set(), []
-for r in rows:
-    h = sha(r["japanese"])
-    if h in seen:
-        continue
-    seen.add(h)
-    kept.append(r)
-rows = kept
-print(f"loading {len(rows)} rows from {os.path.basename(src_file)}")
 
-os.makedirs(LOAD, exist_ok=True)
-for f in os.listdir(LOAD):
-    if f.endswith(".sql"):
-        os.remove(os.path.join(LOAD, f))
+def main():
+    # --in makes the loader re-runnable against any corpus slice. The path used to
+    # be hardcoded to v11_sentences.jsonl, so loading anything else meant editing
+    # the file -- and editing the file while it also ran on import is how a
+    # loader becomes untrustworthy.
+    src_file = arg("--in") or os.path.join(RUNS, "v11_sentences.jsonl")
+    print(f"input: {src_file}")
 
-# ---- derive ----------------------------------------------------------------
-do_embed = "--no-embed" not in sys.argv
-texts = [r["japanese"] for r in rows]
-vecs = None
-if do_embed:
-    t0 = time.time()
-    print(f"embedding {len(texts)} sentences with {EMB_MODEL.split('/')[-1]} ...")
-    vecs = embed(texts)
-    print(f"  {time.time()-t0:.1f}s total, dim={len(vecs[0])}")
+    # ---- read ------------------------------------------------------------------
+    rows = []
+    for line in open(src_file, encoding="utf-8"):
+        r = json.loads(line)
+        if r.get("status") in ("validated", "needs_review"):
+            rows.append(r)
 
-prepared = []
-for i, r in enumerate(rows, start=1):
-    s = r["japanese"]
-    ts = tokens_of(s)
-    prepared.append({
-        "id": i,
-        "japanese": s,
-        "norm_hash": sha(s),
-        "content_lemmas": sorted(content_set(s)),
-        "form_signature": form_signature(s),
-        "particle_seq": [t["surface"] for t in ts if t["surface"] in PARTICLES],
-        "token_count": len(ts),
-        "char_count": len(s),
-        "embedding": vecs[i - 1] if vecs else None,
-        "grammar_point_id": r.get("grammar_point_id"),
-        "register": r.get("register"),
-        "model": r.get("model"),
-        "job_id": r.get("job_id"),
-        "status": r["status"],
-        "notes": (r.get("note") or []),
-        "tokens": ts,
-    })
+    # de-duplicate on norm_hash: keep the first, they are the same sentence
+    seen, kept = set(), []
+    for r in rows:
+        h = sha(r["japanese"])
+        if h in seen:
+            continue
+        seen.add(h)
+        kept.append(r)
+    rows = kept
+    print(f"loading {len(rows)} rows from {os.path.basename(src_file)}")
 
-# ---- emit ------------------------------------------------------------------
-n = 0
-for c in range(0, len(prepared), ROWS_PER_CHUNK):
-    chunk = prepared[c:c + ROWS_PER_CHUNK]
-    n += 1
-    with open(os.path.join(LOAD, f"sentences_{n:03d}.sql"), "w", encoding="utf-8") as f:
-        f.write("insert into sentences (id, japanese, norm_hash, content_lemmas, "
-                "form_signature, particle_seq, token_count, char_count, embedding, "
-                "grammar_point_id, register, source, model, job_id, status, notes) values\n")
-        vals = []
-        for p in chunk:
-            vals.append(
-                f"({p['id']},{q(p['japanese'])},{q(p['norm_hash'])},"
-                f"{arr(p['content_lemmas'])},{q(p['form_signature'])},"
-                f"{arr(p['particle_seq'])},{p['token_count']},{p['char_count']},"
-                f"{vec(p['embedding'])},{q(p['grammar_point_id'])},{q(p['register'])},"
-                f"'generated',{q(p['model'])},{q(p['job_id'])},{q(p['status'])},"
-                f"{arr(p['notes'])})")
-        f.write(",\n".join(vals) + "\non conflict (id) do nothing;\n")
+    os.makedirs(LOAD, exist_ok=True)
+    for f in os.listdir(LOAD):
+        if f.endswith(".sql"):
+            os.remove(os.path.join(LOAD, f))
 
-    with open(os.path.join(LOAD, f"tokens_{n:03d}.sql"), "w", encoding="utf-8") as f:
-        vals = []
-        for p in chunk:
-            for t in p["tokens"]:
-                vals.append(f"({p['id']},{t['position']},{q(t['surface'])},"
-                            f"{q(t['lemma'])},{q(t['reading'])},{q(t['pos'])},"
-                            f"{q(t['pos_detail'])})")
-        for i in range(0, len(vals), 500):
-            f.write("insert into sentence_tokens (sentence_id, position, surface, lemma, "
-                    "reading, pos, pos_detail) values\n")
-            f.write(",\n".join(vals[i:i + 500]) + "\non conflict do nothing;\n")
+    # ---- derive ----------------------------------------------------------------
+    do_embed = "--no-embed" not in sys.argv
+    texts = [r["japanese"] for r in rows]
+    vecs = None
+    if do_embed:
+        t0 = time.time()
+        print(f"embedding {len(texts)} sentences with {EMB_MODEL.split('/')[-1]} ...")
+        vecs = embed(texts)
+        print(f"  {time.time()-t0:.1f}s total, dim={len(vecs[0])}")
 
-with open(os.path.join(LOAD, "99_finalise.sql"), "w", encoding="utf-8") as f:
-    f.write(f"select setval('sentences_id_seq', {len(prepared)}, true);\n")
+    prepared = []
+    for i, r in enumerate(rows, start=1):
+        s = r["japanese"]
+        ts = tokens_of(s)
+        prepared.append({
+            "id": i,
+            "japanese": s,
+            "norm_hash": sha(s),
+            "content_lemmas": sorted(content_set(s)),
+            "form_signature": form_signature(s),
+            "particle_seq": [t["surface"] for t in ts if t["surface"] in PARTICLES],
+            "token_count": len(ts),
+            "char_count": len(s),
+            "embedding": vecs[i - 1] if vecs else None,
+            "grammar_point_id": r.get("grammar_point_id"),
+            "register": r.get("register"),
+            "model": r.get("model"),
+            "job_id": r.get("job_id"),
+            "status": r["status"],
+            "notes": (r.get("note") or []),
+            "tokens": ts,
+        })
 
-print(f"\nwrote {n} chunks to {LOAD}")
-tot_tok = sum(len(p["tokens"]) for p in prepared)
-print(f"  sentences: {len(prepared)}")
-print(f"  tokens   : {tot_tok}")
-print(f"  embedded : {'yes dim=' + str(len(vecs[0])) if vecs else 'no'}")
-print(f"  form signatures: {dict(collections.Counter(p['form_signature'] for p in prepared).most_common())}")
-sz = sum(os.path.getsize(os.path.join(LOAD, f)) for f in os.listdir(LOAD))
-print(f"  total SQL: {sz/1e6:.2f} MB")
+    # ---- emit ------------------------------------------------------------------
+    n = 0
+    for c in range(0, len(prepared), ROWS_PER_CHUNK):
+        chunk = prepared[c:c + ROWS_PER_CHUNK]
+        n += 1
+        with open(os.path.join(LOAD, f"sentences_{n:03d}.sql"), "w", encoding="utf-8") as f:
+            f.write("insert into sentences (id, japanese, norm_hash, content_lemmas, "
+                    "form_signature, particle_seq, token_count, char_count, embedding, "
+                    "grammar_point_id, register, source, model, job_id, status, notes) values\n")
+            vals = []
+            for p in chunk:
+                vals.append(
+                    f"({p['id']},{q(p['japanese'])},{q(p['norm_hash'])},"
+                    f"{arr(p['content_lemmas'])},{q(p['form_signature'])},"
+                    f"{arr(p['particle_seq'])},{p['token_count']},{p['char_count']},"
+                    f"{vec(p['embedding'])},{q(p['grammar_point_id'])},{q(p['register'])},"
+                    f"'generated',{q(p['model'])},{q(p['job_id'])},{q(p['status'])},"
+                    f"{arr(p['notes'])})")
+            f.write(",\n".join(vals) + "\non conflict (id) do nothing;\n")
+
+        with open(os.path.join(LOAD, f"tokens_{n:03d}.sql"), "w", encoding="utf-8") as f:
+            vals = []
+            for p in chunk:
+                for t in p["tokens"]:
+                    vals.append(f"({p['id']},{t['position']},{q(t['surface'])},"
+                                f"{q(t['lemma'])},{q(t['reading'])},{q(t['pos'])},"
+                                f"{q(t['pos_detail'])})")
+            for i in range(0, len(vals), 500):
+                f.write("insert into sentence_tokens (sentence_id, position, surface, lemma, "
+                        "reading, pos, pos_detail) values\n")
+                f.write(",\n".join(vals[i:i + 500]) + "\non conflict do nothing;\n")
+
+    with open(os.path.join(LOAD, "99_finalise.sql"), "w", encoding="utf-8") as f:
+        f.write(f"select setval('sentences_id_seq', {len(prepared)}, true);\n")
+
+    print(f"\nwrote {n} chunks to {LOAD}")
+    tot_tok = sum(len(p["tokens"]) for p in prepared)
+    print(f"  sentences: {len(prepared)}")
+    print(f"  tokens   : {tot_tok}")
+    print(f"  embedded : {'yes dim=' + str(len(vecs[0])) if vecs else 'no'}")
+    print(f"  form signatures: {dict(collections.Counter(p['form_signature'] for p in prepared).most_common())}")
+    sz = sum(os.path.getsize(os.path.join(LOAD, f)) for f in os.listdir(LOAD))
+    print(f"  total SQL: {sz/1e6:.2f} MB")
+
+
+
+if __name__ == "__main__":
+    main()

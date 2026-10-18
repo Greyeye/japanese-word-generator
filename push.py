@@ -68,7 +68,16 @@ def verify(cur):
     cur.execute("select id, japanese, norm_hash, content_lemmas, form_signature "
                 "from sentences where status='validated' "
                 "and cardinality(content_lemmas) >= 2 limit 1")
-    sid, ja, nh, lem, form = cur.fetchone()
+    row = cur.fetchone()
+    if row is None:
+        # An empty corpus is a legitimate state (it is the state after a fresh
+        # migration), and the end-to-end probe has nothing to probe. Crashing here
+        # with "cannot unpack non-iterable NoneType" made a healthy empty database
+        # look broken -- which is exactly the wrong signal for a --check command.
+        print("   no validated sentences to probe (corpus empty)")
+        print("   -> the connection and schema are fine; load something and re-run")
+        return
+    sid, ja, nh, lem, form = row
     print(f"   stored : {ja}   (lemmas={lem}, form={form})")
 
     cur.execute("""
@@ -88,45 +97,54 @@ def verify(cur):
         print(f"     tier {tier}  {float(score):.3f}  {expl:<34} {ja2}")
 
 
-url = db_url()
-if not url:
-    print("SUPABASE_DB_URL not found.")
-    print(f"Add it to {ENV} as:")
-    print("   SUPABASE_DB_URL=postgresql://postgres.wilmybwljzbozotopbhx:<password>@<host>:5432/postgres")
-    print("(Dashboard -> Connect -> Session pooler. Secrets live in .env, never in config.yaml.)")
-    sys.exit(1)
+def main():
+    # push.py performed the database write at module level, so merely
+    # importing it (to reuse db_url) executed the load. Third file with
+    # this bug; the guard is now uniform across the pipeline.
+    url = db_url()
+    if not url:
+        print("SUPABASE_DB_URL not found.")
+        print(f"Add it to {ENV} as:")
+        print("   SUPABASE_DB_URL=postgresql://postgres.wilmybwljzbozotopbhx:<password>@<host>:5432/postgres")
+        print("(Dashboard -> Connect -> Session pooler. Secrets live in .env, never in config.yaml.)")
+        sys.exit(1)
 
-redacted = re.sub(r"://([^:]+):[^@]+@", r"://\1:***@", url)
-print(f"connecting to {redacted}")
+    redacted = re.sub(r"://([^:]+):[^@]+@", r"://\1:***@", url)
+    print(f"connecting to {redacted}")
 
-try:
-    conn = psycopg.connect(url, connect_timeout=20)
-except Exception as e:
-    print(f"connection failed: {str(e)[:300]}")
-    sys.exit(1)
+    try:
+        conn = psycopg.connect(url, connect_timeout=20)
+    except Exception as e:
+        print(f"connection failed: {str(e)[:300]}")
+        sys.exit(1)
 
-with conn:
-    with conn.cursor() as cur:
-        cur.execute("select current_database(), version()")
-        db, ver = cur.fetchone()
-        print(f"   connected to {db} -- {ver.split(',')[0]}")
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute("select current_database(), version()")
+            db, ver = cur.fetchone()
+            print(f"   connected to {db} -- {ver.split(',')[0]}")
 
-        if "--verify" in sys.argv:
+            if "--verify" in sys.argv:
+                verify(cur)
+                sys.exit(0)
+
+            if "--check" in sys.argv:
+                verify(cur)
+                sys.exit(0)
+
+            files = chunks()
+            print(f"\napplying {len(files)} chunks")
+            for f in files:
+                sql = open(f, encoding="utf-8").read()
+                t0 = time.time()
+                cur.execute(sql)
+                conn.commit()
+                print(f"   {os.path.basename(f):<22} {len(sql)/1e6:5.2f} MB  {time.time()-t0:6.1f}s",
+                      flush=True)
+
             verify(cur)
-            sys.exit(0)
 
-        if "--check" in sys.argv:
-            verify(cur)
-            sys.exit(0)
 
-        files = chunks()
-        print(f"\napplying {len(files)} chunks")
-        for f in files:
-            sql = open(f, encoding="utf-8").read()
-            t0 = time.time()
-            cur.execute(sql)
-            conn.commit()
-            print(f"   {os.path.basename(f):<22} {len(sql)/1e6:5.2f} MB  {time.time()-t0:6.1f}s",
-                  flush=True)
 
-        verify(cur)
+if __name__ == "__main__":
+    main()
