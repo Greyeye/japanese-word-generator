@@ -478,6 +478,21 @@ materialised at load time, never computed at query time.
   `たくない` (the substring is `た` `く` `な` `い`), so «時間が掛かりたくないです» — a
   perfectly good 〜たい example — was rejected. Now `た(い|くない|かった|くなかった)`,
   taking its match rate 67% -> 78%.
+
+  **Coverage reads 97.0% here, not 99.1% — that is a stricter denominator, not lost
+  words.** A required word used only in an off-pattern sentence no longer counts
+  toward coverage. Like-for-like, counting every generated sentence, the same run is
+  **98.9%** against the loose run's 99.1% — a 0.2pp difference, which is the
+  allowance accepting one uncovered word on 13 points. Verify with
+  `attempts.jsonl`: compare `covered` against required words found in `sentences`
+  rather than `kept`.
+
+  Where the 67 dropped sentences came from — `particle-o-object` 18,
+  `koko-soko-asoko-doko` 10, `te-form-basic` 10, `ta-form` 9, across 17 points.
+  `particle-o-object` dominates because its を covers paths and departures
+  (「公園を散歩します」, 「バスを降ります」) as well as objects, so its regex admits
+  sentences the judge calls off-pattern. Removing them is why its judged
+  `target_used` went 50% -> 0%.
 - **Generator precision, measured on the after-fixes run (77 points, 1,021 kept
   sentences, 210s, 0.21 s/sentence):** required-word coverage **909/913 = 99.6%**,
   not 100% — four points missed one word each (`kara-cause`, `masu-polite-verb`,
