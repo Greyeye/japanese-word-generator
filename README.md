@@ -57,8 +57,32 @@ Nothing generated is written into the repo, and `.gitignore` catches strays.
 | 2 | `validate.py` | structural checks only (identity, length, dedup, predicate) |
 | 3 | `judge.py` | binary model judge → `valid` / `invalid` / `no_verdict` (superseded) |
 | 3b | `rubric_judge.py` | **multi-dimensional** judge: 6 verdicts + target span, codes derived |
+| 4b | `regen_loop.py` | judge `fail` -> regenerate with the failure stated (not correction) |
 | 4 | `kana_audit.py` → `repair_kana.py` | curated kana-spelling audit and repair |
 | 5 | `loader.py` → `push.py` | emit INSERT batches to `runs/load/`, then load |
+
+### Regeneration loop
+
+```powershell
+python regen_loop.py --in sentences.jsonl --out regen.jsonl `
+  --verdicts verdicts.jsonl --key $env:OR_KEY
+```
+
+Judges the input, then regenerates everything that failed on a structural or
+linguistic dimension — stating which dimensions failed, the reason codes and the
+judge's own words. It does **not** correct; correction lost to regeneration in
+every stratum of the A/B (see below).
+
+Two policies worth knowing:
+
+- **`LEVEL`/`REGISTER` are not regenerated.** They are valid Japanese sitting above
+  (or beside) the target; the right response is a re-label, not a re-roll. On 1,012
+  sentences this declined 34 of 162 candidates.
+- It draws a required word per sentence from the same pool + ledger as
+  `generate2.py`. Without that the loop collapses to templates: **33% of its output
+  was a duplicate of another candidate** (86 distinct among 128). With it, 128/128
+  distinct — but also more failures, because a word that cannot take the pattern is
+  now forced into it (「箸を二つください」 is on the pool, not the model).
 
 Supporting: `guardrails.py` (pools, ledger, prompts — imported by `generate2`),
 `ab_retry.py` (measured the retry-context fix), `compare_judge.py` (judge agreement),
@@ -299,29 +323,45 @@ materialised at load time, never computed at query time.
 
 ## Known state
 
-- **The database is empty by design.** Rebuilt from these migrations, so
-  `schema_migrations` holds exactly the three rows above and the five tables have 0
-  rows. Nothing has been loaded since the rebuild.
-- **N5 corpus quality, two ways of measuring.** Binary two-judge consensus over the
-  1,230-sentence corpus: 42% clean, 35% rejected by both, 23% disputed; real defect
-  ~6–8% strict, ~9–16% loose. The rubric judge over 426 of those rejects says the
-  dominant defect is `target_used` at 55–60%. The corpus predates several routing
-  fixes, so its rates are inflated relative to a fresh run.
-- **Of the 426 consensus-rejected, 232 are valid Japanese tagged to a grammar point
-  they do not exercise** — a re-labelling job, not a discard (520 → ~750 usable).
-- **Points known to need a routing rule:** `nanji-what-time` (~92% — the same
-  time-word bug fixed in `counter-ji-oclock`; needs both `CLASS_RULES` and a
-  `targets.json` `frame`), `nai-form` (100%), `da-plain-copula` (80%),
-  `particle-e-direction` (75%), `i-adj-adverbial-ku` (74%), `particle-made-until`
-  (73%), `particle-de-means` (71%). The remaining ~70 points are unranked.
-- **Fixed and verified:** `counter-ji-oclock`, `kara-cause`, `jikan-time-duration`,
-  `location-nouns-ue-shita`, `na-adjective-negative`, `ikutsu-how-many`.
-- **`gpt-6.1-sol` rejected:** 20× the price of `gpt-6-luna` for a 2.5× higher real
-  error rate, and it writes N1-literary Japanese when the product targets N5–N3.
+- **The database is empty by design.** Rebuilt from these migrations; nothing has
+  been loaded since (the load is deliberately untested — `loader.py`/`push.py`
+  compile and resolve their paths but have not been run).
+- **Fresh N5 sample, current guardrails, unbiased:** 1,012 sentences over all 77
+  points. `target_used` fails on **8.0%**, overall-fail **16.0%** (gpt-6-luna,
+  rubric judge). The old corpus's 55–60% figure was measured *conditional on
+  already being rejected*, so it is not comparable.
+- **Six points fixed and re-measured** (same judge, before -> after `target_used`):
+
+  | point | before | after |
+  |---|---|---|
+  | location-nouns-ue-shita | 56% | 0% |
+  | masenka-invitation | 58% | 8% |
+  | na-adj-adverbial-ni | 58% | 9% |
+  | kono-sono-ano-dono-attributive | 58% | 17% |
+  | deshita-past-polite-copula | 42% | 0% |
+  | particle-o-object | 48% | 9% |
+
+  Corpus-wide `target_used` 11.4% -> 8.0%. Caveat: n≈12 per point, so one sentence
+  is 8.3pp; deltas under ~17pp are noise, and the two runs drew different vocabulary.
+- **Next worklist, surfaced by the loop's own failures:** `counter-tsu` (pool admits
+  箸/ペット/ギター, which take 膳/匹/本 not つ), `kono-sono-ano-dono` (二人 still in the
+  pool), `issho-ni-together` (所/ボタン pair unnaturally), `koko-soko-asoko-doko`
+  (中 gives 「箱の中はどこですか」), `da-plain-copula` (still emits です for a だ target),
+  `particle-no-possession` 67%, `question-words-basic` 36% (n=36, burns all retries).
+- **Regeneration loop:** pooled over two runs, **233/256 (91%)** of sentences that
+  were failing by construction came back passing, for ~$0.03.
+- **Level data is not trustworthy enough for a hard gate.** `n5_vocab` (673 words)
+  is curated but has malformed entries (`明い`, missing る); `jlpt_all` (8,050 words)
+  contradicts it on 56 — 人->N1, 三->N1, 店->N1, 東->N1, 中->N3, 明日->N4 — and grades
+  明るい (plainly N5) as N1 while calling the counter 分 N1. So `level_ok` is derived
+  **asymmetrically**: a clean all-N5 word list forces `pass`, but no above-N5 signal
+  ever forces `fail`. Fixing this needs a real N5 list, not a better prompt.
+- **Of the old 1,230-sentence corpus, 232 rejects are valid Japanese tagged to a
+  grammar point they do not exercise** — a re-labelling job (520 -> ~750 usable).
+- **`gpt-6.1-sol` rejected:** 20x the price of `gpt-6-luna` for a 2.5x higher real
+  error rate; it writes N1-literary Japanese when the product targets N5–N3.
 - **ChatGPT/Codex subscriptions do not help here.** Plus includes Codex, but Codex
   is an agent allowance, not API access — on Plus the GPT-6 Luna lane is 350–3,000
   *local messages* per 5h with an unpublished weekly cap, so 200k verdicts would need
   ~2.3 days of continuous best-case allowance with none left for real work. The whole
   100k corpus costs ~$15 at API rates.
-- **Untested (deliberately):** `loader.py` and `push.py` against the rebuilt schema.
-  They compile and their paths resolve, but nothing has been loaded.

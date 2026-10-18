@@ -313,7 +313,8 @@
     "八つ"
    ],
    "target_count": 20,
-   "status": "generated"
+   "status": "generated",
+   "frame": "名詞が文末の述語になるようにしてください（例: 今日は木曜日でした／向こうは学校でした）。「〜は静かでした」「〜は元気でした」のように、形容詞を述語にしないでください。文末は必ず「名詞 + でした」の形にします。"
   },
   {
    "job_id": "n5-012-desu-polite-copula",
@@ -814,7 +815,7 @@
    ],
    "target_count": 20,
    "status": "generated",
-   "frame": "文頭を「この／その／あの／どの + 名詞」の形にしてください。"
+   "frame": "「この／その／あの／どの + 名詞」の形で、目に見える具体的な名詞を修飾してください（例: この本はおもしろいです／あの花はきれいです）。数や曜日・日付を表す語（八つ・二日・十日など）を続けないでください。"
   },
   {
    "job_id": "n5-031-kore-sore-are-demonstratives",
@@ -850,7 +851,7 @@
    "meaning_en": "location relative to a reference (above, below, inside, in front, behind, next to)",
    "formality": "neutral",
    "register_instruction": "N5の学習者向けなので、基本的に「です・ます体」で書いてください。",
-   "check_regex": "(上|下|中|前|後ろ|横|隣|間)",
+   "check_regex": "の(上|下|中|前|後ろ|横|隣|間)",
    "vocab_hint": [
     "年",
     "図書館",
@@ -866,7 +867,8 @@
     "七つ"
    ],
    "target_count": 20,
-   "status": "generated"
+   "status": "generated",
+   "frame": "「名詞 + の + 位置語（上・下・中・前・後ろ・横・隣・間）」の形にしてください。位置語は必ず「の」の直後に置きます（例: 机の上に本があります）。「右に」「外に」のような「の」を伴わない言い方は使わないでください。"
   },
   {
    "job_id": "n5-033-mada-not-yet",
@@ -996,7 +998,8 @@
     "行く"
    ],
    "target_count": 20,
-   "status": "generated"
+   "status": "generated",
+   "frame": "「ませんか」は相手を誘う表現です。聞き手に一緒に何かを勧める文にしてください（例: いっしょに写真を撮りませんか）。状態や能力をたずねる文（「要りませんか」「出来ませんか」「着きませんか」）は誘いではないので書かないでください。"
   },
   {
    "job_id": "n5-038-mashita-polite-past-verb",
@@ -1162,7 +1165,7 @@
    "meaning_en": "adverbial form of na-adjectives",
    "formality": "neutral",
    "register_instruction": "N5の学習者向けなので、基本的に「です・ます体」で書いてください。",
-   "check_regex": "に",
+   "check_regex": "(上手|下手|大切|静か|元気|きれい|大変|丈夫|立派|賑やか|便利|親切|丁寧)に",
    "vocab_hint": [
     "出かける",
     "出来る",
@@ -1179,7 +1182,7 @@
    ],
    "target_count": 20,
    "status": "generated",
-   "frame": "な形容詞を「〜に」の形にして、後ろに動詞を続けてください（例: 静かに話します）。"
+   "frame": "な形容詞を「〜に」の形にして、後ろに動作の動詞を続けてください（例: 静かに話します／上手に歌います）。「〜になります」「〜にします」のような変化の言い方は使わないでください。"
   },
   {
    "job_id": "n5-045-na-adj-te-joining-de",
@@ -1215,7 +1218,7 @@
    "meaning_en": "な-adjective modifying a noun directly",
    "formality": "neutral",
    "register_instruction": "N5の学習者向けなので、基本的に「です・ます体」で書いてください。",
-   "check_regex": "な",
+   "check_regex": "な[一-龠ぁ-んァ-ン]",
    "vocab_hint": [
     "大丈夫",
     "大好き",
@@ -1232,7 +1235,7 @@
    ],
    "target_count": 20,
    "status": "generated",
-   "frame": "「な形容詞 + な + 名詞」の形にしてください。"
+   "frame": "「な形容詞 + な + 名詞」の形にしてください（例: きれいな花／静かな店）。な形容詞が名詞を修飾していることがはっきり分かる文にします。"
   },
   {
    "job_id": "n5-047-na-adjective-negative",
@@ -1269,7 +1272,7 @@
    "meaning_en": "な-adjective non-past",
    "formality": "neutral",
    "register_instruction": "N5の学習者向けなので、基本的に「です・ます体」で書いてください。",
-   "check_regex": "(です|だ)",
+   "check_regex": "(です|だ)[。]?$",
    "vocab_hint": [
     "長い",
     "賑やか",
@@ -1285,7 +1288,8 @@
     "欲しい"
    ],
    "target_count": 20,
-   "status": "generated"
+   "status": "generated",
+   "frame": "文末を「な形容詞 + です／だ」の形にしてください（例: 道はまっすぐです／この部屋は静かだ）。否定形（ではありません）や過去形（でした）は使わないでください。"
   },
   {
    "job_id": "n5-049-na-adjective-past",
@@ -1688,7 +1692,7 @@
    "meaning_en": "marks the direct object of a transitive verb",
    "formality": "neutral",
    "register_instruction": "N5の学習者向けなので、基本的に「です・ます体」で書いてください。",
-   "check_regex": "を",
+   "check_regex": "を[^。、]{1,8}(ます|ました|ません|した|する)",
    "vocab_hint": [
     "五",
     "公園",
@@ -1705,7 +1709,7 @@
    ],
    "target_count": 20,
    "status": "generated",
-   "frame": "動作の対象になる名詞に「を」を付けてください。"
+   "frame": "動詞が直接はたらきかける相手の名詞に「を」を付けてください（例: 父はたばこを吸います／先生は日本語を教えます）。「買い物をする」「洗濯をする」のような決まった言い方ではなく、動作の対象そのものに「を」を付けます。"
   },
   {
    "job_id": "n5-065-particle-to-and-with",

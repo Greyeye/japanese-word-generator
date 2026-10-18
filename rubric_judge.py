@@ -69,6 +69,75 @@ SYS = ("あなたは日本語教材の校閲者です。JLPT N5（初級）の�
        "無理に pass / fail に決める必要はありません。")
 
 
+# --- N5 level evidence -----------------------------------------------------
+# level_ok was the LEAST reliable dimension: 3.8% (luna) vs 17.2% (sonnet) on the
+# same sentences, a 4.5x spread, because neither model holds a trustworthy N5
+# word list. Sonnet flagged 切手 (符) and 風呂 (風) as above N5; both are N5.
+#
+# So stop asking the model to remember. lexicon.json carries jlpt_all: 8,050
+# words mapped to N5..N1. We tokenise the sentence, look each content word up,
+# and hand the judge the FACTS. Where the evidence is decisive the verdict is
+# derived in code rather than left to the model.
+GEN = r"H:\jlpt\gen"
+_LEVELS = None
+_N5 = None
+
+
+def level_data():
+    global _LEVELS, _N5
+    if _LEVELS is None:
+        lex = json.load(open(os.path.join(GEN, "data", "lexicon.json"), encoding="utf-8"))
+        _LEVELS = lex.get("jlpt_all") or {}
+        _N5 = {v["text"] for v in lex.get("n5_vocab", [])}
+    return _LEVELS, _N5
+
+
+def level_evidence(sentence):
+    """Content words in `sentence` that sit ABOVE N5, and words we cannot place.
+
+    Returns (above, unknown) where above is [(word, level)] worst-first.
+
+    Two sources, and they disagree, so the precedence matters:
+      n5_vocab  (673 curated N5 words) -- AUTHORITATIVE. jlpt_all contradicts it on
+                56 of those words (人->N1, 三->N1, 店->N1, 東->N1, 中->N3, 明日->N4),
+                because jlpt_all grades a homograph's other sense. 分 is a counter,
+                absent from n5_vocab, and jlpt_all calls it N1 -- flagging it would
+                fail every counter-fun-minute sentence.
+      jlpt_all  (8,050 words, N5..N1)  -- trusted ONLY at the ends of the scale,
+                for words >= 2 characters and absent from n5_vocab.
+
+    Absence from both lists is reported as unknown, never as "above level".
+    """
+    levels, n5 = level_data()
+    try:
+        from janome.tokenizer import Tokenizer
+        toks = Tokenizer().tokenize(sentence)
+    except Exception:
+        return [], []
+    above, unknown = [], []
+    for t in toks:
+        pos = t.part_of_speech.split(",")[0]
+        if pos not in ("名詞", "動詞", "形容詞", "副詞"):
+            continue
+        forms = []
+        if t.base_form and t.base_form != "*":
+            forms.append(t.base_form)
+        forms.append(t.surface)
+        if any(f in n5 for f in forms):          # curated N5 list wins outright
+            continue
+        lvl = next((levels[f] for f in forms if f in levels), None)
+        word = forms[0]
+        if lvl in ("N1", "N2") and len(word) >= 2:
+            above.append((word, lvl))            # confidently above N5
+        elif lvl is None and len(t.surface) >= 2:
+            unknown.append(t.surface)            # can't place it; do not accuse
+    best = {}
+    for w, l in above:
+        if w not in best or l < best[w]:
+            best[w] = l
+    return sorted(best.items(), key=lambda kv: kv[1]), sorted(set(unknown))
+
+
 def build_prompt(batch, with_frame=True):
     """batch: list of dicts with japanese, pattern, meaning_en, [frame, register_instruction]"""
     dims = "\n".join(f'  "{k}": "pass"|"fail"|"uncertain"   -- {v[0]}'
@@ -82,6 +151,15 @@ def build_prompt(batch, with_frame=True):
             s += f'\n   構造条件: {r["frame"][:200]}'
         if r.get("register_instruction"):
             s += f'\n   文体の指定: {r["register_instruction"][:80]}'
+        # hand over the level FACTS instead of asking the model to recall N5 vocabulary
+        if r.get("_above"):
+            s += ("\n   【語彙の調査結果】N5を超える語: "
+                  + ", ".join(f"{w}({l})" for w, l in r["_above"]))
+        elif r.get("_unknown"):
+            s += ("\n   【語彙の調査結果】N5リストに無い語（判定不能）: "
+                  + ", ".join(r["_unknown"][:6]))
+        else:
+            s += "\n   【語彙の調査結果】すべてN5の語です。"
         L.append(s)
     return (
         "次の例文を、下の各観点について独立に判定してください。\n\n"
@@ -90,6 +168,10 @@ def build_prompt(batch, with_frame=True):
         "- target_used は、対象文法が文の中で「実際に機能している」かをみる。"
         "単に同じ形が含まれているだけ、引用されているだけ、話題として言及されているだけの場合は fail。\n"
         "- 文が正しく自然でも、対象文法が使われていなければ target_used は fail。\n"
+        "- level_ok については【語彙の調査結果】を参考にすること。"
+        "そこに挙げられた語はN5としては難しい可能性が高いが、機械的な判定ではない。"
+        "助詞・助動詞・敬称（さん等）・明らかに基本語の場合は無視してよい。"
+        "挙げられた語を根拠に判断し、自分でN5かどうかを推測しないこと。\n"
         "- register_ok は文体の指定がある場合だけ判定し、指定がなければ pass。\n"
         "- 確信が持てない場合は uncertain を選ぶこと（推測で pass にしない）。\n\n"
         "あわせて、対象文法を表している部分（span）を例文からそのまま抜き出してください。\n"
@@ -100,8 +182,22 @@ def build_prompt(batch, with_frame=True):
         f"全{len(batch)}件について必ず出力すること。\n\n" + "\n".join(L))
 
 
-def derive(v, sentence=""):
+def derive(v, sentence="", above=None, unknown=None):
     """Turn dimension verdicts into codes + overall. Deliberately NOT model-supplied."""
+    v = dict(v)
+    # level_ok is grounded in the word list, but ASYMMETRICALLY.
+    #
+    # Deriving "fail" would need a trustworthy above-N5 signal, and we do not have
+    # one: jlpt_all grades 明るい (plainly N5) as N1, contradicts n5_vocab on 56
+    # words, and mis-lemmatises forms like 持てる/年生. A false "above level" would
+    # fail valid sentences, so we never manufacture one.
+    #
+    # Deriving "pass" is safe: it requires every content word to be in the curated
+    # n5_vocab, in which case the sentence really is N5 vocabulary. Anything
+    # unplaceable is reported as unknown and left to the model.
+    level_source = "model"
+    if above == [] and unknown == []:
+        v["level_ok"], level_source = "pass", "derived"
     codes = [DIMENSIONS[d][1] for d in DIMENSIONS
              if v.get(d) == "fail"]
     codes.sort(key=lambda c: SEVERITY.index(c) if c in SEVERITY else 99)
@@ -125,7 +221,10 @@ def derive(v, sentence=""):
                 "failed_dimensions": dims,
                 "uncertain_dimensions": unc,
                 "overall": overall,
-                "span_ok": span_ok})
+                "span_ok": span_ok,
+                "level_source": level_source,
+                "above_level": [list(x) for x in (above or [])],
+                "unknown_words": list(unknown or [])})
     return out
 
 
@@ -160,6 +259,11 @@ def _parse(txt):
 def judge_batch(batch, model=DEFAULT_MODEL, key=None, temperature=0):
     """-> (list of derived verdicts aligned to batch, usage dict)"""
     key = load_key(key)
+    # attach the level evidence before building the prompt (mutates copies)
+    batch = [dict(r) for r in batch]
+    for r in batch:
+        above, unknown = level_evidence(r.get("japanese", ""))
+        r["_above"], r["_unknown"] = above, unknown
     params = REASONING.get(model, {"reasoning": {"enabled": False}, "max_tokens": 2000})
     body = {"model": model, "temperature": temperature,
             "messages": [{"role": "system", "content": SYS},
@@ -179,7 +283,9 @@ def judge_batch(batch, model=DEFAULT_MODEL, key=None, temperature=0):
             continue
         if any(rr.get(d) not in V3 for d in DIMENSIONS):
             continue                      # malformed: drop, caller counts it
-        out[idx] = derive(rr, batch[idx].get("japanese", ""))
+        out[idx] = derive(rr, batch[idx].get("japanese", ""),
+                          above=batch[idx].get("_above"),
+                          unknown=batch[idx].get("_unknown"))
     return out, usage, finish
 
 
@@ -238,6 +344,9 @@ def main():
                             "failed_dimensions": v["failed_dimensions"],
                             "uncertain_dimensions": v["uncertain_dimensions"],
                             "overall": v["overall"], "span_ok": v["span_ok"],
+                            "level_source": v["level_source"],
+                            "above_level": v["above_level"],
+                            "unknown_words": v["unknown_words"],
                             "finish_reason": finish})
                 log.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 n += 1

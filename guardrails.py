@@ -165,8 +165,42 @@ CLASS_RULES = {
         r"^(今|朝|今朝|明日|今日|昨日|午前|午後|夕方|夜|今晩|毎朝|毎晩|毎日)$"},
     # location relatives: no semantic class covers 上/下/中/前/後ろ/横/隣/間 --
     # they classify as ABSTRACT, PLACE, or nothing at all -- so match the words.
+    # The earlier rule also allow-listed 右/左/外/内/向こう/近く/そば/あいだ. Those
+    # are position words but they CANNOT take the "Noun + の + X" form the pattern
+    # requires, so they produced 「右に車があります」/「外に犬がいます」 -- 51% of
+    # this point's sentences missed the pattern and the pool was the cause.
     "location-nouns-ue-shita": {
-        "text_match": r"^(上|下|中|前|後ろ|横|隣|間|右|左|外|内|向こう|近く|そば|あいだ)$"},
+        "text_match": r"^(上|下|中|前|後ろ|横|隣|間)$"},
+    # な-adjective に-adverbial. An ALLOW-list, because of the 29 na-adj in the
+    # lexicon many are adverbs or nouns smuggled in (あまり/たくさん/多分/いかが/
+    # いろいろ/本当/まだ/まっすぐ) and several simply do not take 〜に+verb
+    # (結構/同じ/黄色/大人/有名/嫌い). Those produced 「結構に使います」/「同じに作ります」.
+    "na-adj-adverbial-ni": {
+        "text_match": r"^(上手|下手|大切|静か|元気|きれい|大変|丈夫|立派|賑やか|便利|親切|丁寧|簡単)$"},
+    # ませんか is an INVITATION. State and ability verbs make plain yes/no questions
+    # instead: 「水が要りませんか」/「日本語が出来ませんか」/「駅に着きませんか」 are
+    # questions about a state, never offers.
+    "masenka-invitation": {
+        "not_text": r"^(要る|出来る|有る|居る|分かる|見える|聞こえる|着く|違う|成る|似合う|足りる)$"},
+    # 「を」 must mark the DIRECT OBJECT. 「〜をする」 set phrases put を inside a fixed
+    # expression rather than on the acted-upon noun: 「日曜日に買い物をします」.
+    # (The lexicon tags those nouns as verbs, so they reach a verb-routed pool.)
+    "particle-o-object": {
+        "not_text": r"^(買い物|洗濯|掃除|勉強|電話|仕事|食事|散歩|旅行|料理)$"},
+    # この/その/あの/どの + Noun needs a DEMONSTRABLE thing. The bare 381-noun pool
+    # admits counter words (八つ is ABSTRACT) and time words, giving
+    # 「この本は八つあります」/「その日から二日です」.
+    "kono-sono-ano-dono-attributive": {
+        "kind": {"OBJECT", "FOOD", "NATURE", "PLACE", "PERSON", "ANIMAL",
+                 "VEHICLE", "CLOTHING", "SUBSTANCE"},
+        "not_kind": {"ABSTRACT", "TIME", "UNIT", "BODY"}},
+    # Noun + でした wants the NOUN as the predicate. The full 381-noun pool let the
+    # model spend the required noun as the SUBJECT and a na-adjective as the
+    # predicate -- 「村は静かでした」 -- which passes word coverage and matches
+    # /でした/ while using no noun-copula at all.
+    "deshita-past-polite-copula": {
+        "kind": {"TIME", "PLACE", "PERSON", "OBJECT", "FOOD", "NATURE", "EVENT"},
+        "not_kind": {"ABSTRACT", "UNIT"}},
     "ikura-how-much":     {"kind": {"FOOD", "OBJECT", "CLOTHING", "VEHICLE",
                                     "EVENT"}},
     # いくつ counts things. NATURE admitted 緑 (not countable) and the shape
@@ -229,14 +263,16 @@ def noun_ok(gp, word, classes=None):
     if not c:
         return not rule.get("strict")
 
-    nk = rule.get("not_kind") or set()
-    if set(c.get("kind") or []) & nk:
+    nk = set(rule.get("not_kind") or ())
+    if set(c.get("kind") or ()) & nk:
+        return False
+    if set(c.get("shape") or ()) & nk:
         return False
 
     for axis, allowed in rule.items():
         if axis in ("text_match", "not_text", "not_kind", "strict"):
             continue
-        if set(c.get(axis) or []) & allowed:
+        if set(c.get(axis) or ()) & set(allowed):
             return True
     return False
 
