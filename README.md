@@ -14,11 +14,17 @@ constrains everything below.
 ```
 gen/                        the repo — code only
   *.py                      the pipeline (see Stages)
+  regress.py                frozen regression corpus (see below)
+  test_regen_model.py       asserts --model reaches the request body
   data/                     curated inputs the code READS
     lexicon.json            775 words, POS-tagged, from japanese-language-data
     targets.json            77 N5 grammar points + per-point rules
     noun_classes.json       semantic classes (kind/shape) per noun
     noun_class_overrides.json   hand corrections layered over the above
+    n5_extra.json           27 N5 words jlpt_all misgrades (homograph/wrong sense)
+    regression/
+      inputs.jsonl          frozen required-word draw, 77 points, 913 slots
+      baseline.json         corpus metrics to diff a future change against
   supabase/
     config.toml
     migrations/
@@ -31,6 +37,7 @@ H:\jlpt\runs\               everything GENERATED (outside the repo)
   attempts*.jsonl           raw model output, immutable
   *_sentences.jsonl         validated / rejected candidates
   ledger*.json              word-rotation state
+  regress/<label>/          regression run verdicts
   load/                     generated INSERT batches (~12 MB)
   *.log, *_val.txt
 ```
@@ -58,6 +65,8 @@ Nothing generated is written into the repo, and `.gitignore` catches strays.
 | 3 | `judge.py` | binary model judge → `valid` / `invalid` / `no_verdict` (superseded) |
 | 3b | `rubric_judge.py` | **multi-dimensional** judge: 6 verdicts + target span, codes derived |
 | 4b | `regen_loop.py` | judge `fail` -> regenerate with the failure stated (not correction) |
+| 4c | `regress.py` | frozen regression corpus: `freeze` / `run` / `gen` / `diff` (paired McNemar) |
+| — | `test_regen_model.py` | asserts `--model` reaches the request body |
 | 4 | `kana_audit.py` → `repair_kana.py` | curated kana-spelling audit and repair |
 | 5 | `loader.py` → `push.py` | emit INSERT batches to `runs/load/`, then load |
 
@@ -326,10 +335,27 @@ materialised at load time, never computed at query time.
 - **The database is empty by design.** Rebuilt from these migrations; nothing has
   been loaded since (the load is deliberately untested — `loader.py`/`push.py`
   compile and resolve their paths but have not been run).
-- **Fresh N5 sample, current guardrails, unbiased:** 1,012 sentences over all 77
-  points. `target_used` fails on **8.0%**, overall-fail **16.0%** (gpt-6-luna,
-  rubric judge). The old corpus's 55–60% figure was measured *conditional on
-  already being rejected*, so it is not comparable.
+- **Current corpus state: `target_used` fails on 5.3% (luna) / 7.8% (haiku)** —
+  938 sentences over all 77 points, per-sentence pattern filter, transitive pool.
+  Generation sequence, measured at each step with both judges:
+
+  | generation | luna target_used | haiku target_used |
+  |---|---|---|
+  | unbiased baseline (100% word coverage) | 8.0% | 11.5% |
+  | relax acceptance to 90% | 10.8% | 14.2% |
+  | + per-sentence pattern filter | 5.9% | 7.2% |
+  | + transitive pool, current | **5.3%** | **7.8%** |
+
+  The 90% relaxation looks like a regression and is not: it changed which sentences
+  were generated at all. The filter is the change that moved the number, and it also
+  carries a deterministic guarantee — no sentence reaches the corpus failing its own
+  grammar point's check. The old corpus's 55–60% figure was measured *conditional on
+  already being rejected*, so it is not comparable to any row here.
+
+  Read these through the regression instrument, not as fresh draws: the last two rows
+  differ by 0.6pp and 0.6pp, which the paired diff shows is below resolution for a
+  generator change (the judges do not agree which is better). Only the filter step is
+  large enough to be a real effect.
 - **Six points fixed and re-measured, under BOTH judges** (same prompts on both
   samples, so the comparison isolates the fixes; `target_used` fail rate):
 
@@ -346,28 +372,26 @@ materialised at load time, never computed at query time.
   judge. Corpus-wide `target_used` 11.4% -> 8.0% (luna) and 13.7% -> 11.5% (haiku);
   agreement 81.6% -> 82.9%. Caveat: n≈12 per point, so one sentence is 8.3pp;
   deltas under ~17pp are noise, and the two runs drew different vocabulary.
-- **Next worklist — CONSENSUS of both judges (luna and haiku, current prompt), 13
-  points where they agree the pattern is missed on >=15% of sentences:**
+- **Next worklist — CONSENSUS of both judges (luna and haiku), 8 points where they
+  agree the pattern is missed on >=15% of sentences.** Re-derived from the current
+  run; the per-sentence filter removed five points that were on the previous
+  13-point list:
 
-  | point | luna | haiku | n |
-  |---|---|---|---|
-  | na-adj-te-joining-de | 17% | 58% | 12 |
-  | question-words-basic | 36% | 36% | 36 |
-  | particle-de-means | 25% | 42% | 12 |
-  | da-plain-copula | 17% | 50% | 12 |
-  | na-adjective-attributive | 25% | 33% | 12 |
-  | na-adjective-past | 33% | 20% | 15 |
-  | masen-polite-negative-verb | 25% | 25% | 12 |
-  | particle-to-and-with | 17% | 33% | 12 |
-  | te-kudasai-request | 17% | 33% | 12 |
-  | mada-not-yet | 17% | 25% | 12 |
-  | mashou-volitional | 17% | 25% | 12 |
-  | counter-tsu | 18% | 18% | 28 |
-  | particle-kara-from | 17% | 17% | 12 |
+  | point | luna | haiku |
+  |---|---|---|
+  | particle-de-means | 42% | 25% |
+  | counter-fun-minute | 33% | 17% |
+  | mai-every-prefix | 33% | 17% |
+  | particle-e-direction | 25% | 33% |
+  | na-adjective-nonpast | 27% | 18% |
+  | na-adjective-attributive | 21% | 21% |
+  | na-adj-te-joining-de | 17% | 33% |
+  | masenka-invitation | 17% | 25% |
 
-  `counter-tsu` independently corroborated by the regeneration loop, which found
-  the pool admits words counted with 膳/匹/本 rather than つ (「箸を二つください」).
-  `question-words-basic` burns all four retries every run.
+  Act on these through `regress.py`, not by re-reading fresh per-point rates: at n≈12
+  a single sentence is 8.3pp, so most of the movement above is not a real ordering.
+  `ichiban-superlative` (0% / 50%) and `particle-kara-from` (42% / 8%) are
+  irreconcilable from one judge and are deliberately excluded.
 - **Points the judges irreconcilably disagree on — do not trust a single-judge rate:**
   `nanyoubi-day-of-week` (luna 0% / haiku 100%, n=7), `particle-no-possession`
   (67% / 0%), `dewa-arimasen-negative-polite-copula` (25% / 0%). These need more
@@ -454,7 +478,9 @@ materialised at load time, never computed at query time.
   gives a hard guarantee: **0 kept sentences fail their own pattern check** (67+
   before).
 
-  Measured effect, both judges, three generations of the same code path:
+  Measured effect, both judges. This is the position **at this change** — the current
+  figures (including the transitive pool added later) are the four-row table in
+  **Known state**:
 
   | generation | luna `target_used` | haiku `target_used` |
   |---|---|---|
@@ -523,19 +549,10 @@ materialised at load time, never computed at query time.
   This is a new rule axis (`pos_raw_any` / `pos_raw_none` in `noun_ok`), reading
   JMdict vt/vi rather than `noun_classes`, so it applies to words the noun classifier
   never saw. Transitivity is the one property a surface regex cannot recover.
-- **The consensus worklist shrank from 13 points to 8** after the per-sentence filter.
-  Re-derived from the current run, both judges agreeing the pattern is missed on >=15%:
-
-  | point | luna | haiku |
-  |---|---|---|
-  | particle-de-means | 42% | 25% |
-  | counter-fun-minute | 33% | 17% |
-  | mai-every-prefix | 33% | 17% |
-  | particle-e-direction | 25% | 33% |
-  | na-adjective-nonpast | 27% | 18% |
-  | na-adjective-attributive | 21% | 21% |
-  | na-adj-te-joining-de | 17% | 33% |
-  | masenka-invitation | 17% | 25% |
+- **The consensus worklist shrank from 13 points to 8** after the per-sentence filter,
+  because the filter removed five points that were on the old list. The current table
+  lives in **Known state** above — it is kept in exactly one place so the two copies
+  cannot drift apart, which is how the previous list went stale.
 
   Still irreconcilable and not to be acted on from one judge: `ichiban-superlative`
   (0% / 50%) and `particle-kara-from` (42% / 8%).
