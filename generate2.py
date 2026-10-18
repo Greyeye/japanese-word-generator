@@ -128,6 +128,25 @@ if points:
 if limit:
     todo = todo[:int(limit)]
 
+# How many required words may go UNCOVERED before the batch is accepted.
+#
+# Retrying for the last word or two cost three extra model calls per point and
+# bought nothing. Measured: particle-o-object burned all four attempts because
+# 授業 never landed -- the model wrote 「日本語を勉強します」 for that slot -- while
+# the other 11 words were covered. 11/12 is a perfectly usable batch, and a 100%
+# requirement does not scale: with 77 points and one stubborn word each, the retry
+# overhead is the dominant call cost.
+#
+# Allowance is max(1, 10% of required), capped below the word count so a small
+# pool still has to give something (a 1-word pool must still cover its word).
+MISS_ALLOWANCE = float(arg("--miss-allowance") or 0.10)
+
+
+def misses_allowed(n_req):
+    if n_req <= 1:
+        return 0
+    return min(n_req - 1, max(1, int(MISS_ALLOWANCE * n_req)))
+
 ATT = arg("--out") or os.path.join(RUNS, "attempts2.jsonl")
 if not arg("--append") and os.path.exists(ATT) and "--resume" not in sys.argv:
     os.replace(ATT, ATT + ".prev")   # one run per file; keep the previous one
@@ -142,6 +161,7 @@ tot_sent = 0
 tot_covered = 0
 tot_required = 0
 first_try_hits = 0
+loose_jobs = 0        # accepted with a word still uncovered (allowed by design)
 jobs = 0
 
 for k, t in enumerate(todo, 1):
@@ -233,7 +253,12 @@ for k, t in enumerate(todo, 1):
             first_try_hits += 1
 
         miss = sorted({v["text"] for v in required} - covered)
-        if not miss and pat_ok:            # words covered AND pattern matched -> done
+        # Accept when the pattern holds and coverage is within allowance. The old
+        # rule was `not miss` -- 100% coverage -- which made one stubborn word cost
+        # three extra calls and does not scale across 77 points.
+        if pat_ok and len(miss) <= misses_allowed(len(required)):
+            if miss:
+                loose_jobs += 1
             break
 
     jobs += 1
@@ -252,6 +277,8 @@ print(f"\nDONE {jobs} points, {tot_sent} sentences in {dt:.0f}s "
 print(f"required-word coverage: {tot_covered}/{tot_required} "
       f"({100*tot_covered/max(tot_required,1):.1f}%)")
 print(f"points hitting >=60% of pool on attempt 1: {first_try_hits}/{jobs}")
+print(f"points accepted with an uncovered word: {loose_jobs}/{jobs} "
+      f"(allowance {MISS_ALLOWANCE:.0%}, i.e. {misses_allowed(POOL_N)} of {POOL_N} words)")
 for p in ("noun", "verb", "adj"):
     u, n = led.coverage(pools[p])
     print(f"  global {p:<5} coverage: {u}/{n} ({100*u/max(n,1):.1f}%)")

@@ -411,6 +411,39 @@ materialised at load time, never computed at query time.
   about that point changed and its POS check never fired. With ~12 sentences per
   point, one sentence is 8.3pp and a whole-point swing can be nothing at all. Only
   the POS-rejection count (0) is a clean signal; the rates are not.
+- **Coverage acceptance is 90%, not 100% (`--miss-allowance`, default 0.10).** The
+  old rule accepted a batch only when *every* required word was covered
+  (`if not miss`), so one stubborn word cost three extra model calls for the whole
+  point — `particle-o-object` burned all four attempts because 授業 never landed
+  while the other 11 words were. Measured full-corpus effect:
+
+  | | 100% required | 90% allowance |
+  |---|---|---|
+  | total attempts | 98 | **84** |
+  | extra calls (above 1/point) | 21 | **7** |
+  | points retrying | 9 | **3** |
+  | final coverage | 99.6% | 99.1% |
+  | sentences produced | 1012 | 965 |
+
+  A 100% requirement does not scale: with one stubborn word per point, retry
+  overhead becomes the dominant call cost. The allowance is `max(1, 10% of
+  required)` capped below the word count, so a 1-word pool must still cover its
+  word.
+
+  **Does it cost quality? Not measurably — and the test is worth keeping.** Corpus
+  `target_used` read 8.0% -> 10.8% (luna) and 11.5% -> 14.2% (haiku), which looks
+  like a cost. Splitting by whether a point's retry behaviour actually changed
+  dissolves it:
+
+  | group | luna | haiku |
+  |---|---|---|
+  | STOPPED retrying (the 7 points the change can act on) | 14.9% -> 16.7% (+1.8) | 14.9% -> 13.1% (**-1.8**) |
+  | everything else (68 points, unaffected by the change) | 6.6% -> 10.2% (**+3.6**) | 10.8% -> 14.3% (**+3.5**) |
+
+  The control group moved more than the treatment group under both judges, so the
+  corpus movement is **draw variance**, not a cost of the relaxation — and under
+  haiku the group the change acts on got better. Never compare two whole-corpus
+  rates without a control group.
 - **Generator precision, measured on the after-fixes run (77 points, 1,021 kept
   sentences, 210s, 0.21 s/sentence):** required-word coverage **909/913 = 99.6%**,
   not 100% — four points missed one word each (`kara-cause`, `masu-polite-verb`,
