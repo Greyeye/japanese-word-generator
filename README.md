@@ -380,6 +380,9 @@ materialised at load time, never computed at query time.
   `mou-ta-already`, `tai-desire`). Nine sentences were exact duplicates of another
   (1,012 unique of 1,021). 75/77 points covered >=60% of their pool on attempt 1.
   Retries cost 30 attempts across 9 points; the other 68 points needed exactly one.
+  Coverage was never 100%: the before-fixes run was 917/919 = **99.8%** with 76/77
+  on attempt 1. So 99.6% is not a regression from the fixes — the guardrail's
+  guarantee is "checked and retried", not "always satisfied".
 - **`counter-people-nin`'s check_regex was broken (41% match).** It read
   `(にん|一人|二人|ひとり|ふたり)`, so 三人–十人 — written in kanji, containing no
   kana `にん` — never matched, and the point burned all four retries on every run
