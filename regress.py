@@ -88,6 +88,32 @@ def freeze(force=False):
         })
     os.makedirs(FREEZE_DIR, exist_ok=True)
     out = os.path.join(FREEZE_DIR, "inputs.jsonl")
+
+    # The reference set is IMMUTABLE by default. A pool change (the transitive filter
+    # added 77 points' worth of edits) would otherwise silently produce a different
+    # draw on the next `freeze`, and every baseline comparison against it would be
+    # measuring a changed reference rather than a changed code path. Changing the
+    # reference is a deliberate act: --force, and the hash is recorded so the change
+    # is visible in the diff.
+    if os.path.exists(out) and not force:
+        old = open(out, encoding="utf-8").read()
+        import hashlib
+        new = "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n"
+        if old != new:
+            oh = hashlib.sha256(old.encode()).hexdigest()[:12]
+            nh = hashlib.sha256(new.encode()).hexdigest()[:12]
+            print(f"REFUSING to overwrite the frozen reference set.\n")
+            print(f"  existing : {oh}  ({len(old.splitlines())} points)")
+            print(f"  recomputed: {nh}  ({len(rows)} points)")
+            print(f"\n  The draw changed -- most likely a pool or CLASS_RULES edit. That is")
+            print(f"  expected after a rule change, but it means the baseline no longer")
+            print(f"  refers to the same reference set, so it must be a deliberate act:")
+            print(f"      python regress.py freeze --force")
+            print(f"  and the old baseline should be re-taken, not silently inherited.")
+            return
+        print(f"frozen set unchanged ({len(rows)} points) -- nothing written")
+        return
+
     with open(out, "w", encoding="utf-8") as f:
         for r in rows:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
@@ -396,20 +422,48 @@ def diff(a, b):
         print(f"     B better: " + ", ".join(f"{g} +{per[g][0]-per[g][1]}"
                                              for g in b_better[:6]))
 
-    # clustered bootstrap: resample POINTS, not sentences
+    # clustered bootstrap: resample POINTS, not sentences.
+    #
+    # ESTIMAND, stated explicitly because an interval without units is uninterpretable:
+    #   statistic  = (number of sentences where A fails and B passes)
+    #              - (number of sentences where B fails and A passes)
+    #   unit       = discordant SENTENCES (a count, not a percentage point)
+    #   sign       = negative means A has fewer failures than B, i.e. A is better
+    #   scale      = resampling N points WITH replacement, N = number of points present,
+    #                so each replicate covers the same number of points as the data
+    #   replicates = 5000, seed = 0 (deterministic: same input -> same interval)
+    #   interval   = percentile method, 2.5th and 97.5th percentiles of the replicates
+    #   p-value    = fraction of replicates with statistic <= 0 (one-sided; a
+    #                two-sided equivalent is 2x that when the mean is on one side)
+    #
+    # It is NOT a percentage-point difference and NOT a per-sentence rate. The
+    # magnitude scales with corpus size: the same effect on a 2x larger corpus gives a
+    # roughly 2x wider interval in these units.
+    #
+    # Resampling points supports generalising ACROSS COMPARABLE POINTS, not across all
+    # Japanese grammar: these 77 are a defined curriculum, not a random sample.
+    N_BOOT, SEED = 5000, 0
     pts = list(per.values())
-    rnd = random.Random(0)
+    rnd = random.Random(SEED)
     d = []
-    for _ in range(5000):
+    for _ in range(N_BOOT):
         s = [rnd.choice(pts) for _ in pts]
         d.append(sum(v[0] for v in s) - sum(v[1] for v in s))
     d.sort()
     lo, hi = d[int(.025 * len(d))], d[int(.975 * len(d))]
     p_le0 = sum(1 for x in d if x <= 0) / len(d)
-    print(f"     clustered bootstrap (resampling POINTS): mean {sum(d)/len(d):+.1f} "
-          f"95% CI [{lo:+d}, {hi:+d}]  P(diff<=0) = {p_le0:.4f}")
-    print(f"     -> {len(a_better)} vs {len(b_better)} points, not "
-          f"{len(both)} sentences, is the count that generalises")
+    print(f"\n  clustered bootstrap")
+    print(f"     estimand : discordant SENTENCE count, A-fail-minus-B-fail "
+          f"(negative = A better)")
+    print(f"     procedure: resample the {len(per)} grammar points with replacement, "
+          f"{N_BOOT} replicates, seed {SEED}")
+    print(f"     interval : percentile 2.5-97.5 of the replicates")
+    print(f"     result   : mean {sum(d)/len(d):+.1f}  95% CI [{lo:+d}, {hi:+d}]  "
+          f"P(diff<=0) = {p_le0:.4f}")
+    print(f"     relates to : {len(a_better)} vs {len(b_better)} points, not "
+          f"{len(both)} sentences")
+    print(f"     does NOT say: anything about all Japanese grammar -- these 77 points "
+          f"are a curriculum")
 
 
 def _sign_test(k, n):

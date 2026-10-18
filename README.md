@@ -618,6 +618,70 @@ materialised at load time, never computed at query time.
   11 points" for what was actually the opposite — the labels were swapped relative to
   the count.
 
+  **The bootstrap's estimand is stated in the output, not left implicit.** An interval
+  printed as `[-41, -4]` is uninterpretable without units, so `diff` now prints:
+
+  ```
+  estimand : discordant SENTENCE count, A-fail-minus-B-fail (negative = A better)
+  procedure: resample the 77 grammar points with replacement, 5000 replicates, seed 0
+  interval : percentile 2.5-97.5 of the replicates
+  result   : mean -22.8  95% CI [-41, -4]  P(diff<=0) = 0.9942
+  does NOT say: anything about all Japanese grammar -- these 77 points are a curriculum
+  ```
+
+  It is a **count of discordant sentences**, not a percentage point and not a rate, so
+  it scales with corpus size: the same effect on a 2x larger corpus gives a roughly 2x
+  wider interval in these units. Resampling points supports generalising across
+  **comparable** points; these 77 are a defined curriculum, not a random sample of
+  Japanese grammar. Sentence-level McNemar is retained as a valid descriptive paired
+  comparison for this fixed corpus — the mistake would be reading its p-value alone as
+  evidence of broad generalisation.
+
+- **Generation identity is content-addressed, and separate from judging identity.**
+  A hand-maintained `PROMPT_VERSION` is a convention a developer can forget to bump;
+  a hash is evidence. `config_key()` therefore hashes the **prompt source itself**
+  (`inspect.getsource(regen_prompt)` + the system message) along with the model,
+  temperature range and token budget, so any edit to the prompt changes the identity
+  whether or not anyone remembered to bump a constant. `PROMPT_VERSION` survives only
+  as a human-readable label.
+
+  `judge_config_key()` is a **separate** identity on purpose: a judge change must not
+  force expensive regeneration, while a generation change must never reuse old output.
+  Those are different invalidation rules and are named differently for that reason.
+
+  ```
+  prompt_sha256     404bf3edd2e51991
+  config (luna)     14626756cd1957c8
+  config (haiku)    afc443d2f747d0fc
+  judge  (luna)     400a70d1cefab311
+  ```
+
+- **Unknown provenance is not silently upgraded to known.** The previous version read
+  a config-less row as `d.get("config") or config_key(MODEL)` — which *asserts* the old
+  row was produced by the current configuration, something nobody recorded and which
+  may well be false. Rows without a config now go into a separate `unknown` set,
+  are **not** treated as a match, and are regenerated; `--trust-legacy` accepts them
+  explicitly for a run that knows the history. Convenience for backward compatibility
+  and a claim about provenance are not the same thing.
+
+- **Import isolation is tested behaviourally, not only structurally.** The AST test
+  pins the structure of `main()`; `test_regress.py` pins the observable behaviour
+  instead: `generate2` is imported in a **fresh subprocess** and asserted to print
+  nothing but its marker, exit 0, emit no run banner, leave the dataset file
+  byte-identical, and complete with `socket.connect` monkey-patched to raise — so a
+  future import-time request fails the test rather than the invoice.
+
+  The statistics also have **hand-computed fixtures**: exact McNemar and sign-test
+  values are checked against binomial coefficients worked out by hand
+  (`mcnemar(0,10) = 2/1024`, `sign(7,10) = 2*176/1024`), plus synthetic point sets with
+  known discordance structure. A p-value that is merely plausible is not evidence.
+
+  One of those fixtures was wrong on first write — it asserted the bootstrap mean
+  equals the observed statistic exactly, and got -1.016 for -1. The code was right;
+  the claim ("unbiased in expectation") is about the expectation, so the test now
+  bounds the difference by the Monte Carlo standard error instead.
+
+
 - **The span cross-check is a diagnostic, not a fourth verdict.** `target_used` stays
   the semantic judgement, `span_ok` says the span occurs, `span_pattern_ok` says it
   overlaps the configured pattern, `overall` is the acceptance decision. A

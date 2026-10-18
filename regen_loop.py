@@ -76,23 +76,65 @@ MODEL = "openai/gpt-6-luna"
 OR_URL = "https://openrouter.ai/api/v1/chat/completions"
 MAX_ATTEMPTS = 2
 
-# Bump when regen_prompt() or the system message changes. It is part of the resume
-# identity below, so a prompt revision produces NEW candidates instead of silently
-# reusing output another prompt produced -- an output file labelled with one prompt
-# but containing another's work is worse than no resume at all.
+# Content-addressed prompt identity.
+#
+# A hand-maintained version string is a CONVENTION; a hash is EVIDENCE. A developer
+# (me) can forget to bump PROMPT_VERSION, and the code then treats two different
+# prompts as equivalent -- silently, which is the failure mode this whole mechanism
+# exists to prevent. PROMPT_VERSION is kept as a human-readable label, but the
+# identity is derived from the prompt source itself, so any edit invalidates it
+# whether or not anyone remembered to bump anything.
 PROMPT_VERSION = "regen-v1"
 
+REGEN_SYS = ("あなたは日本語教材の例文を作る専門家です。JLPT N5 の短い例文だけを書きます。")
 
-def config_key(model, prompt_version=PROMPT_VERSION):
-    """Identity of the configuration that produced a candidate.
+# the sampling temperature is drawn per call from this range; it is a configuration
+# fact for identity purposes, not a per-call identity, so the RANGE is hashed
+TEMP_RANGE = (0.7, 1.0)
+MAX_TOKENS = 600
 
-    A resume mechanism must identify the logical work item, and the work item here is
-    (sentence, grammar point, model, prompt) -- not just the sentence. Keying on
-    (parent, grammar_point_id) alone fixed one collision and left a worse one: changing
-    --model or the prompt would find the previous run's rows already "done" and skip
-    them, so a model comparison would silently reuse the old model's output.
+
+def prompt_sha256():
+    """sha256 of the prompt TEMPLATE (function source + system message), truncated.
+
+    Hashing the source is deliberate: it changes if the wording, the ordering, the
+    instruction count or a comment inside the template changes. Hashing a constant
+    string would not.
     """
-    return f"{model}|{prompt_version}"
+    import hashlib
+    import inspect
+    src = inspect.getsource(regen_prompt) + "\n--SYS--\n" + REGEN_SYS
+    return hashlib.sha256(src.encode("utf-8")).hexdigest()[:16]
+
+
+def config_key(model=None, temperature=None):
+    """Content-addressed identity of the GENERATION configuration.
+
+    Includes the prompt hash, so a prompt edit produces a new identity automatically.
+    Deliberately does NOT include the judge model: a judge change must not force
+    expensive regeneration, while a generation change must never reuse old output.
+    Those are separate identities and are named separately for that reason.
+    """
+    import hashlib
+    payload = {
+        "model": model or MODEL,
+        "prompt_sha256": prompt_sha256(),
+        "prompt_version_label": PROMPT_VERSION,
+        "temperature_range": list(TEMP_RANGE),
+        "max_tokens": MAX_TOKENS,
+    }
+    import json as _json
+    return hashlib.sha256(
+        _json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+
+def judge_config_key(judge_model):
+    """Identity of the JUDGING configuration, separate from generation."""
+    import hashlib
+    import json as _json
+    return hashlib.sha256(_json.dumps(
+        {"judge_model": judge_model, "rubric": "rubric_judge-v1"},
+        sort_keys=True).encode("utf-8")).hexdigest()[:16]
 
 
 def regen_prompt(item, verdict, required=()):
@@ -127,9 +169,8 @@ def gen_one(item, verdict, key, required=(), temperature=0.8, model=None):
     # generator comparison run through this script compared luna against luna.
     # Reported by an external code review, verified here.
     body = {"model": model or MODEL, "temperature": temperature,
-            "reasoning": {"enabled": False}, "max_tokens": 600,
-            "messages": [{"role": "system",
-                          "content": "あなたは日本語教材の例文を作る専門家です。JLPT N5 の短い例文だけを書きます。"},
+            "reasoning": {"enabled": False}, "max_tokens": MAX_TOKENS,
+            "messages": [{"role": "system", "content": REGEN_SYS},
                          {"role": "user", "content": prompt}]}
     rq = urllib.request.Request(OR_URL, data=json.dumps(body).encode(),
         headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"})
@@ -155,6 +196,9 @@ def main():
     ap.add_argument("--batch", type=int, default=6)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--key", default=None)
+    ap.add_argument("--trust-legacy", action="store_true",
+                    help="accept existing rows that record no config, instead of "
+                         "regenerating them (unknown provenance is otherwise not a match)")
     a = ap.parse_args()
 
     key = RJ.load_key(a.key)
@@ -203,25 +247,41 @@ def main():
     print(f"\nto regenerate: {len(todo)}   not regenerating: {skipped}", flush=True)
 
     # --- regenerate ----------------------------------------------------
-    done = set()
+    # Two sets, deliberately. A row with no recorded config has UNKNOWN provenance:
+    # loading the module default (which is what this did) silently asserts the old row
+    # was produced by the current configuration. It may well have been produced by a
+    # different model or prompt, so unknown is not a match -- those items regenerate.
+    # --trust-legacy accepts them explicitly for a run that knows the history.
+    done = set()            # (parent, gp, config) -- config verified identical
+    unknown = set()         # (parent, gp) -- provenance not recorded, NOT assumed
     if os.path.exists(a.out):
         for l in open(a.out, encoding="utf-8"):
-            # Keyed on (parent, grammar_point_id, config): the parent text alone skips a
-            # point whose sentence matches another point's, and adding the config stops
-            # a --model or prompt change from finding the previous run "already done"
-            # and silently reusing output produced by a different configuration.
             try:
                 d = json.loads(l)
-                done.add((d["parent"], d.get("grammar_point_id"),
-                          d.get("config") or config_key(MODEL)))
+                k = (d["parent"], d.get("grammar_point_id"))
+                cfg0 = d.get("config")
+                if cfg0 is None:
+                    unknown.add(k)
+                else:
+                    done.add(k + (cfg0,))
             except Exception:
                 pass
+    if unknown:
+        print(f"  {len(unknown)} existing rows have NO recorded config (unknown "
+              f"provenance)", flush=True)
+        print(f"  -> regenerating them, because unknown is not a match", flush=True)
+    if a.trust_legacy:
+        print(f"  --trust-legacy: accepting them as-is", flush=True)
     log = open(a.out, "a", encoding="utf-8")
     cfg = config_key(a.model)
     print(f"  config {cfg}", flush=True)
     n = 0; cost = 0.0
     for r, v in todo:
-        if (r["japanese"], r["grammar_point_id"], cfg) in done:
+        key3 = (r["japanese"], r["grammar_point_id"], cfg)
+        if key3 in done:
+            continue
+        # unknown-provenance rows are accepted only on an explicit opt-in
+        if a.trust_legacy and (r["japanese"], r["grammar_point_id"]) in unknown:
             continue
         try:
             # ONE required word per sentence. generate2.py draws N words and asks
@@ -249,6 +309,7 @@ def main():
                     "required": req_txt,
                     "gen_model": a.model,          # auditable: which model produced this
                     "config": cfg,                 # model+prompt identity, part of the resume key
+                    "prompt_sha256": prompt_sha256(),   # evidence, not a convention
                     "regen_because": v["reason_codes"],
                     "failed_dimensions": v["failed_dimensions"],
                     "judge_reason": (v.get("reason") or "")[:200],
