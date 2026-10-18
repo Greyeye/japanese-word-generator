@@ -539,6 +539,25 @@ materialised at load time, never computed at query time.
 
   Still irreconcilable and not to be acted on from one judge: `ichiban-superlative`
   (0% / 50%) and `particle-kara-from` (42% / 8%).
+- **Generator precision — all four generations, coverage on a like-for-like standard.**
+  The reported coverage figure changed meaning when the per-sentence filter landed (a
+  word used only in an off-pattern sentence stopped counting), so the two columns
+  differ. The old-standard column counts every generated sentence, as the pre-filter
+  runs did:
+
+  | generation | points | attempts | kept | dropped | cov (reported) | cov (old std) |
+  |---|---|---|---|---|---|---|
+  | 100% coverage required | 77 | 98 | 1021 | – | 99.6% | **99.0%** |
+  | 90% allowance | 77 | 84 | 965 | – | 99.1% | **98.8%** |
+  | + per-sentence filter | 77 | 94 | 931 | 67 | 97.0% | **98.9%** |
+  | + transitive pool | 77 | 92 | 939 | 34 | 97.6% | **98.6%** |
+
+  **Word coverage is flat — 98.6–99.0% — across every change.** The generator was
+  never the constraint on coverage; what moved was the attempt count (98 -> 92) and
+  how much off-pattern text gets dropped (67 -> 34). Any statement that coverage
+  "improved" or "regressed" over this work is a measurement-standard artefact. The
+  drop column starts at the filter change because nothing was filtered before it.
+
 - **Generator precision, measured on the after-fixes run (77 points, 1,021 kept
   sentences, 210s, 0.21 s/sentence):** required-word coverage **909/913 = 99.6%**,
   not 100% — four points missed one word each (`kara-cause`, `masu-polite-verb`,
