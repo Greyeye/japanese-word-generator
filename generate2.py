@@ -162,6 +162,7 @@ tot_covered = 0
 tot_required = 0
 first_try_hits = 0
 loose_jobs = 0        # accepted with a word still uncovered (allowed by design)
+tot_dropped = 0       # sentences dropped for failing the point's pattern check
 jobs = 0
 
 for k, t in enumerate(todo, 1):
@@ -210,25 +211,36 @@ for k, t in enumerate(todo, 1):
         # only sentences the generator actually keeps matter downstream; the raw
         # output is retained separately so the log still shows what the model said
         new = [s for s in got if s.strip() not in {x.strip() for x in got_all}]
-        got_all.extend(new)
 
         # The word pool guarantees the vocabulary; nothing so far guaranteed the
-        # grammar. Test the pattern PER SENTENCE, not once for the batch: a single
-        # match satisfying the whole batch let most sentences miss the pattern while
-        # the loop still reported success, which is why pattern_missing rose even
-        # after the retry was added. Require most kept sentences to match.
-        # The pattern must be met as a STRING (check_regex) and, where the point
-        # needs it, as a PART OF SPEECH (pos_check). Both are generation-time gates
-        # feeding the retry, so a bad realisation is regenerated instead of being
-        # caught later by a judge -- and POS catches cases a regex cannot, because
-        # 「木曜日でした」 and 「静かでした」 differ only in token subcategory.
+        # grammar. The pattern is checked PER SENTENCE, and -- crucially -- only
+        # sentences that PASS it are kept.
+        #
+        # The previous design kept everything and applied the check as a batch gate
+        # (`pat_ok` at 80% of keepers). That failed two ways at once:
+        #   1. off-pattern sentences still entered the corpus;
+        #   2. a point whose check could not reach 80% retried MAX_TRIES times without
+        #      ever converging. Measured: tai-desire and mashou-ka-invitation both
+        #      burned 4 attempts at 100% WORD coverage while 25-33% of their output
+        #      was off-pattern -- and the retries produced more off-pattern sentences,
+        #      so the loop emitted pollution it could not fix.
+        # Filtering instead makes pat_ok true by construction and lets coverage alone
+        # decide when to stop.
         pos_names = t.get("pos_check") or []
+
+        def _passes(s):
+            return (rx.search(s) if rx else True) and G.pos_ok(s, pos_names)
+
         if rx or pos_names:
-            n_match = sum(1 for s in got_all
-                          if (rx.search(s) if rx else True) and G.pos_ok(s, pos_names))
-            pat_ok = bool(got_all) and n_match >= 0.8 * len(got_all)
+            kept_ok = [s for s in new if _passes(s)]
+            n_match = len(kept_ok)
+            n_seen = len(got_all) + len(new)
         else:
-            pat_ok = True
+            kept_ok, n_match, n_seen = new, len(new), len(got_all) + len(new)
+
+        got_all.extend(kept_ok)
+        pat_ok = True                      # by construction: got_all passed the check
+        pattern_ratio = (len(got_all) / n_seen) if n_seen else 1.0
 
         # which required words did this batch actually use?
         hit = {v["text"] for v in required
@@ -244,10 +256,13 @@ for k, t in enumerate(todo, 1):
             "required": [v["text"] for v in required],
             "covered": sorted(covered),
             "returned": len(got), "sentences": got,
-            "kept": new, "pattern_ok": pat_ok,
+            "kept": kept_ok, "pattern_ok": pat_ok,
+            "pattern_ratio": round(pattern_ratio, 3),
+            "dropped_off_pattern": len(new) - len(kept_ok),
             "usage": usage, "sec": round(el, 2),
         }, ensure_ascii=False) + "\n")
         log.flush()
+        tot_dropped += len(new) - len(kept_ok)
 
         if tries == 1 and len(covered) >= POOL_N * 0.6:
             first_try_hits += 1
@@ -279,6 +294,7 @@ print(f"required-word coverage: {tot_covered}/{tot_required} "
 print(f"points hitting >=60% of pool on attempt 1: {first_try_hits}/{jobs}")
 print(f"points accepted with an uncovered word: {loose_jobs}/{jobs} "
       f"(allowance {MISS_ALLOWANCE:.0%}, i.e. {misses_allowed(POOL_N)} of {POOL_N} words)")
+print(f"sentences dropped for failing their own pattern check: {tot_dropped}")
 for p in ("noun", "verb", "adj"):
     u, n = led.coverage(pools[p])
     print(f"  global {p:<5} coverage: {u}/{n} ({100*u/max(n,1):.1f}%)")

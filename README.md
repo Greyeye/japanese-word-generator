@@ -444,6 +444,40 @@ materialised at load time, never computed at query time.
   corpus movement is **draw variance**, not a cost of the relaxation — and under
   haiku the group the change acts on got better. Never compare two whole-corpus
   rates without a control group.
+- **Only sentences that pass their own point's pattern check are kept.** The loop
+  used to keep everything and apply the check as a *batch* gate (`pat_ok` at 80% of
+  keepers). That failed two ways at once: off-pattern sentences entered the corpus,
+  and a point whose check could not reach 80% retried `MAX_TRIES` times without ever
+  converging — `tai-desire` and `mashou-ka-invitation` both burned 4 attempts at
+  **100% word coverage** while 25–33% of their output was off-pattern. Filtering
+  makes `pat_ok` true by construction, lets coverage alone decide when to stop, and
+  gives a hard guarantee: **0 kept sentences fail their own pattern check** (67+
+  before).
+
+  Measured effect, both judges, three generations of the same code path:
+
+  | generation | luna `target_used` | haiku `target_used` |
+  |---|---|---|
+  | 100% coverage required | 8.0% (1012) | 11.5% (1012) |
+  | 90% allowance | 10.8% (965) | 14.2% (965) |
+  | **90% allowance + per-sentence filter** | **5.9%** (928) | **7.2%** (928) |
+
+  Filter vs allowance alone: **-4.9pp** (luna) and **-7.0pp** (haiku), with 28 and 32
+  of ~77 points improving against 13 and 14 worsening. The mechanism is checkable:
+  the points that improve most are exactly the ones with the most off-pattern output
+  (`particle-o-object` 50% -> 0%, `mashou-ka-invitation` 35% -> 0%, `tai-desire`
+  31% -> 8%).
+
+  **The two changes are needed together.** Filtering alone lowers coverage, because
+  dropped sentences no longer count toward it, so the loop retries longer — attempts
+  went 84 -> 94. The 90% allowance is what stops that from becoming thrashing. The
+  allowance alone looked like a quality regression; with the filter it is the best
+  configuration measured.
+
+  Also fixed a regex gap found by this work: `tai-desire`'s `たい` does not match
+  `たくない` (the substring is `た` `く` `な` `い`), so «時間が掛かりたくないです» — a
+  perfectly good 〜たい example — was rejected. Now `た(い|くない|かった|くなかった)`,
+  taking its match rate 67% -> 78%.
 - **Generator precision, measured on the after-fixes run (77 points, 1,021 kept
   sentences, 210s, 0.21 s/sentence):** required-word coverage **909/913 = 99.6%**,
   not 100% — four points missed one word each (`kara-cause`, `masu-polite-verb`,

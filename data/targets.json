@@ -1887,7 +1887,7 @@
    "meaning_en": "want to ___ (speaker's own desire)",
    "formality": "neutral",
    "register_instruction": "N5の学習者向けなので、基本的に「です・ます体」で書いてください。",
-   "check_regex": "たい",
+   "check_regex": "た(い|くない|かった|くなかった)",
    "vocab_hint": [
     "走る",
     "働く",
