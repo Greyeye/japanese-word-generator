@@ -102,9 +102,13 @@ def regen_prompt(item, verdict, required=()):
     )
 
 
-def gen_one(item, verdict, key, required=(), temperature=0.8):
+def gen_one(item, verdict, key, required=(), temperature=0.8, model=None):
     prompt = regen_prompt(item, verdict, required)
-    body = {"model": MODEL, "temperature": temperature,
+    # `model` comes from --model. It used to be hardcoded to the module constant,
+    # which silently ignored the flag: only --judge-model was honoured, so any
+    # generator comparison run through this script compared luna against luna.
+    # Reported by an external code review, verified here.
+    body = {"model": model or MODEL, "temperature": temperature,
             "reasoning": {"enabled": False}, "max_tokens": 600,
             "messages": [{"role": "system",
                           "content": "あなたは日本語教材の例文を作る専門家です。JLPT N5 の短い例文だけを書きます。"},
@@ -184,12 +188,18 @@ def main():
     done = set()
     if os.path.exists(a.out):
         for l in open(a.out, encoding="utf-8"):
-            try: done.add(json.loads(l)["parent"])
-            except Exception: pass
+            # keyed on (parent, grammar_point_id): keying on the parent text alone
+            # skips a point whose sentence happens to match another point's, the
+            # same resume-key bug already fixed once in judge_compare_haiku.py
+            try:
+                d = json.loads(l)
+                done.add((d["parent"], d.get("grammar_point_id")))
+            except Exception:
+                pass
     log = open(a.out, "a", encoding="utf-8")
     n = 0; cost = 0.0
     for r, v in todo:
-        if r["japanese"] in done:
+        if (r["japanese"], r["grammar_point_id"]) in done:
             continue
         try:
             # ONE required word per sentence. generate2.py draws N words and asks
@@ -197,7 +207,7 @@ def main():
             # sentence with four words produced cramming instead:
             # 「スリッパ、飛行機、ラジオカセット、肉があります。」
             req = draw_words(r["grammar_point_id"], 1)
-            outs, usage = gen_one(r, v, key, required=req)
+            outs, usage = gen_one(r, v, key, required=req, model=a.model)
             cost += float(usage.get("cost", 0) or 0)
             for s in outs[:1]:                      # one fresh candidate per parent
                 req_txt = [w["text"] for w in req]
@@ -215,6 +225,7 @@ def main():
                     "frame": r.get("frame", ""),
                     "meaning_en": r.get("meaning_en", ""),
                     "required": req_txt,
+                    "gen_model": a.model,          # auditable: which model produced this
                     "regen_because": v["reason_codes"],
                     "failed_dimensions": v["failed_dimensions"],
                     "judge_reason": (v.get("reason") or "")[:200],

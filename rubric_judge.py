@@ -198,7 +198,32 @@ def build_prompt(batch, with_frame=True):
         f"全{len(batch)}件について必ず出力すること。\n\n" + "\n".join(L))
 
 
-def derive(v, sentence="", above=None, unknown=None):
+def _target_regex(gp):
+    """Compiled check_regex for a grammar point, or None. Cached.
+
+    Used to cross-check the judge's target span. Deliberately the SAME regex the
+    generator is filtered against, so the mechanical and semantic evidence refer to
+    one construction rather than two lookups that can drift apart.
+    """
+    if not hasattr(_target_regex, "_c"):
+        _target_regex._c = {}
+    if gp in _target_regex._c:
+        return _target_regex._c[gp]
+    rx = None
+    try:
+        p = os.path.join(GEN, "data", "targets.json")
+        for t in json.load(open(p, encoding="utf-8"))["targets"]:
+            if t["grammar_point_id"] == gp:
+                if t.get("check_regex"):
+                    rx = re.compile(t["check_regex"])
+                break
+    except Exception:
+        rx = None
+    _target_regex._c[gp] = rx
+    return rx
+
+
+def derive(v, sentence="", above=None, unknown=None, check_regex=None):
     """Turn dimension verdicts into codes + overall. Deliberately NOT model-supplied."""
     v = dict(v)
     # level_ok is grounded in the word list, in BOTH directions now.
@@ -234,10 +259,42 @@ def derive(v, sentence="", above=None, unknown=None):
         overall = "pass"
 
     span = (v.get("span") or "").strip()
-    # a span is only evidence if it is literally present
+    # A span is only evidence if it is literally present. That proves the span
+    # EXISTS; it does not prove the span is the target construction -- the judge
+    # could quote any substring of the sentence.
     span_ok = None
     if span:
         span_ok = span in sentence
+
+    # ...so cross-check the span against the point's own check_regex. This is the
+    # difference between "the sentence contains the pattern somewhere" and "the
+    # construction the judge identified IS the pattern". A regex can be satisfied by
+    # one clause while the judge points at a different one.
+    #
+    # The span must OVERLAP a match, not be contained by one. Containment fails for
+    # any span that reaches back before the match starts, which is the common case:
+    # the を-object regex matches from を onward (を着ます), while the judge quotes
+    # シャツを. Overlap catches that; containment calls it a conflict.
+    span_pattern_ok = None
+    if span and span_ok and check_regex is not None:
+        span_pattern_ok = bool(check_regex.search(span))
+        if not span_pattern_ok:
+            i = sentence.find(span)
+            if i >= 0:
+                j = i + len(span)
+                span_pattern_ok = any(i < m.end() and m.start() < j
+                                      for m in check_regex.finditer(sentence))
+
+    # The semantic verdict stays SEPARATE from the mechanical checks. A mismatch is
+    # recorded as an audit flag, never folded into `overall`: the judge may legitimately
+    # quote a span wider than the regex match (a whole clause vs the pattern inside it),
+    # so escalating this to a failure would manufacture defects. What it is good for is
+    # a worklist -- cases where the judge says "target used" while identifying a span
+    # that does not contain the pattern are exactly the sentences worth a human look.
+    evidence_conflict = bool(span_ok and span_pattern_ok is False)
+    if evidence_conflict:
+        v["_conflict"] = True
+
     out = dict(v)
     out.update({"reason_codes": codes,
                 "primary_defect": codes[0] if codes else "",
@@ -245,6 +302,8 @@ def derive(v, sentence="", above=None, unknown=None):
                 "uncertain_dimensions": unc,
                 "overall": overall,
                 "span_ok": span_ok,
+                "span_pattern_ok": span_pattern_ok,
+                "evidence_conflict": evidence_conflict,
                 "level_source": level_source,
                 "above_level": [list(x) for x in (above or [])],
                 "unknown_words": list(unknown or [])})
@@ -307,8 +366,9 @@ def judge_batch(batch, model=DEFAULT_MODEL, key=None, temperature=0):
         if any(rr.get(d) not in V3 for d in DIMENSIONS):
             continue                      # malformed: drop, caller counts it
         out[idx] = derive(rr, batch[idx].get("japanese", ""),
-                          above=batch[idx].get("_above"),
-                          unknown=batch[idx].get("_unknown"))
+                           above=batch[idx].get("_above"),
+                           unknown=batch[idx].get("_unknown"),
+                           check_regex=_target_regex(batch[idx].get("grammar_point_id")))
     return out, usage, finish
 
 
@@ -367,6 +427,8 @@ def main():
                             "failed_dimensions": v["failed_dimensions"],
                             "uncertain_dimensions": v["uncertain_dimensions"],
                             "overall": v["overall"], "span_ok": v["span_ok"],
+                            "span_pattern_ok": v.get("span_pattern_ok"),
+                            "evidence_conflict": v.get("evidence_conflict", False),
                             "level_source": v["level_source"],
                             "above_level": v["above_level"],
                             "unknown_words": v["unknown_words"],

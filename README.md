@@ -539,6 +539,70 @@ materialised at load time, never computed at query time.
 
   Still irreconcilable and not to be acted on from one judge: `ichiban-superlative`
   (0% / 50%) and `particle-kara-from` (42% / 8%).
+- **`regress.py` — the regression corpus, and why the project needed it.** Every
+  measurement here shared one weakness: a run draws a fresh random set of required
+  words per point and generates ~12 sentences, so a per-point rate moves 8.3pp per
+  sentence and two runs differ mostly by which words were drawn. Three changes were
+  correctly motivated and then unmeasurable — judged rates moved inside the noise and
+  the two judges did not even agree which run was better.
+
+  What can be frozen, and what cannot:
+
+  - **Sentences** — freezing text tests the JUDGE. `regress.py run` re-judges a fixed
+    set, so before/after differs only by the judge or its prompt.
+  - **Generation** — cannot be frozen; sampling is the point. But the largest single
+    source of cross-run variance is the WORD DRAW, not the sampling. `regress.py gen`
+    holds the words fixed, so the comparison is paired on vocabulary per word.
+
+  `regress.py freeze` records a deterministic draw per point (77 points, 913 word
+  slots), seeded by grammar point id so re-running reproduces it byte-for-byte —
+  verified identical md5. `regress.py diff` does the paired comparison and computes
+  **exact McNemar** on the discordant pairs in code, so the number never depends on
+  trusting a summary.
+
+  The instrument immediately justifies itself. Luna vs haiku on the *same* 938
+  sentences:
+
+  | dimension | luna | haiku | broken / fixed | McNemar |
+  |---|---|---|---|---|
+  | target_used | 5.3% | 7.8% | 50 / 27 | p=1.2e-02 |
+  | overall | 13.1% | 23.5% | 133 / 36 | p=2.8e-14 |
+  | span_ok | 0.5% | 0.3% | 2 / 4 | n.s. |
+
+  **A 2.5pp difference is resolvable when paired** — the exact effect size that was
+  invisible across fresh draws all session. The overall row also sharpens the judge
+  leniency gap to a 3.7:1 discordant ratio, where the earlier estimate was an
+  imprecise "~16pp more lenient". `data/regression/baseline.json` records the
+  starting point so a future change has something to diff against.
+
+- **`regen_loop.py` ignored `--model`; fixed, with a test.** `gen_one()` built its
+  request from the module-level `MODEL` constant, so the flag was parsed and discarded
+  while `--judge-model` worked. Silent, and specifically dangerous: a generator
+  comparison run through this script would have compared luna against luna and looked
+  like a clean null result. Now passed through and recorded as `gen_model` in each
+  output row so a run is auditable after the fact. The resume key was also `parent`
+  alone — the same bug already fixed once in `judge_compare_haiku.py` — so it now keys
+  on `(parent, grammar_point_id)`. `test_regen_model.py` stubs the HTTP call and
+  asserts the model actually sent in the request body (5/5).
+
+- **The judge's target span is cross-checked against the point's own regex.** A span
+  being literally present proves it EXISTS, not that it is the target construction.
+  `span_pattern_ok` now requires the span to **overlap** a `check_regex` match — the
+  same regex the generator is filtered against, so mechanical and semantic evidence
+  refer to one construction instead of two lookups that can drift.
+
+  Overlap, not containment: a `を`-object regex matches from `を` onward (`を着ます`)
+  while the judge quotes `シャツを`, which reaches back before the match starts, so
+  containment calls a correct span a conflict. Measured on 938 sentences x 2 judges,
+  requiring a direct match flagged 23 cases of which nearly all were that boundary
+  artefact; overlap cuts it to 2 (luna) and 6 (haiku), **0 under both judges**.
+
+  Kept as an audit flag (`evidence_conflict`), never folded into `overall` — the judge
+  may legitimately quote a span wider than the match, so escalating it would
+  manufacture defects. What survives is real signal: both `i-adjective-nonpast` hits
+  are an attributive use (`黒いねこです。`) that the predicate-position regex cannot
+  match, which is a point-design gap rather than a judge error.
+
 - **Generator precision — all four generations, coverage on a like-for-like standard.**
   The reported coverage figure changed meaning when the per-sentence filter landed (a
   word used only in an off-pattern sentence stopped counting), so the two columns

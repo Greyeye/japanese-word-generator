@@ -1,0 +1,796 @@
+{
+ "label": "baseline",
+ "source": "runs/vtfix (per-sentence filter + transitive pool)",
+ "note": "Frozen inputs are in data/regression/inputs.jsonl. This file records the corpus metrics those inputs were generated alongside, so a future run has something to diff against. The full verdict files (~375 KB each) stay in runs/vtfix, not in the repo.",
+ "caveats": [
+  "n~12 sentences per point: one sentence is 8.3pp",
+  "cross-judge agreement ~80%: never rank a point off a single judge",
+  "coverage is reported on-pattern only since the filter; 98.6% like-for-like"
+ ],
+ "judges": {
+  "luna": {
+   "n": 938,
+   "target_used_fail": 0.0533,
+   "overall_fail": 0.1311,
+   "per_point": {
+    "arimasu-existence-inanimate": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.1667
+    },
+    "counter-en-money": {
+     "n": 11,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "counter-fun-minute": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.1667
+    },
+    "counter-hon-long": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "counter-ji-oclock": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "counter-mai-flat": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.3333
+    },
+    "counter-people-nin": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "counter-sai-age": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "counter-tsu": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "da-plain-copula": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "dake-only-basic": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "deshita-past-polite-copula": {
+     "n": 11,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.2727
+    },
+    "desu-polite-copula": {
+     "n": 11,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "dewa-arimasen-negative-polite-copula": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.0833
+    },
+    "ga-hoshii-wanting-thing": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.25
+    },
+    "hou-ga-comparative": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "i-adj-adverbial-ku": {
+     "n": 16,
+     "target_used_fail": 0.125,
+     "overall_fail": 0.25
+    },
+    "i-adj-desu-politeness": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "i-adj-te-joining-kute": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "i-adjective-negative": {
+     "n": 11,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "i-adjective-nonpast": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "i-adjective-past": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "ichiban-superlative": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.1667
+    },
+    "ikura-how-much": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.3333
+    },
+    "ikutsu-how-many": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.25
+    },
+    "imasu-existence-animate": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.0833
+    },
+    "issho-ni-together": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "jikan-time-duration": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "kara-cause": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "koko-soko-asoko-doko": {
+     "n": 11,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0909
+    },
+    "kono-sono-ano-dono-attributive": {
+     "n": 11,
+     "target_used_fail": 0.0909,
+     "overall_fail": 0.0909
+    },
+    "kore-sore-are-demonstratives": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "location-nouns-ue-shita": {
+     "n": 7,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "mada-not-yet": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.0833
+    },
+    "mai-every-prefix": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "masen-polite-negative-verb": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "masendeshita-polite-past-negative-verb": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "masenka-invitation": {
+     "n": 16,
+     "target_used_fail": 0.125,
+     "overall_fail": 0.125
+    },
+    "mashita-polite-past-verb": {
+     "n": 16,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0625
+    },
+    "mashou-ka-invitation": {
+     "n": 12,
+     "target_used_fail": 0.25,
+     "overall_fail": 0.4167
+    },
+    "mashou-volitional": {
+     "n": 18,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0556
+    },
+    "masu-polite-verb": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.0833
+    },
+    "mo-mo-both": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.1667
+    },
+    "mou-ta-already": {
+     "n": 11,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "na-adj-adverbial-ni": {
+     "n": 11,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "na-adj-te-joining-de": {
+     "n": 12,
+     "target_used_fail": 0.3333,
+     "overall_fail": 0.3333
+    },
+    "na-adjective-attributive": {
+     "n": 12,
+     "target_used_fail": 0.25,
+     "overall_fail": 0.25
+    },
+    "na-adjective-negative": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "na-adjective-nonpast": {
+     "n": 11,
+     "target_used_fail": 0.3636,
+     "overall_fail": 0.4545
+    },
+    "na-adjective-past": {
+     "n": 12,
+     "target_used_fail": 0.1667,
+     "overall_fail": 0.1667
+    },
+    "nai-de-kudasai": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "nai-form": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "nanji-what-time": {
+     "n": 12,
+     "target_used_fail": 0.25,
+     "overall_fail": 0.3333
+    },
+    "nanyoubi-day-of-week": {
+     "n": 7,
+     "target_used_fail": 0.1429,
+     "overall_fail": 0.2857
+    },
+    "particle-de-means": {
+     "n": 13,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.1538
+    },
+    "particle-e-direction": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.1667
+    },
+    "particle-ga-subject": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "particle-ka-question": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "particle-kara-from": {
+     "n": 12,
+     "target_used_fail": 0.1667,
+     "overall_fail": 0.25
+    },
+    "particle-made-until": {
+     "n": 12,
+     "target_used_fail": 0.5,
+     "overall_fail": 0.5
+    },
+    "particle-mo-also": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "particle-ne-seeking-agreement": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "particle-ni-target": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.3333
+    },
+    "particle-no-possession": {
+     "n": 12,
+     "target_used_fail": 0.3333,
+     "overall_fail": 0.4167
+    },
+    "particle-o-object": {
+     "n": 11,
+     "target_used_fail": 0.1818,
+     "overall_fail": 0.2727
+    },
+    "particle-to-and-with": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.25
+    },
+    "particle-wa-topic": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "particle-ya-non-exhaustive": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "particle-yo-emphasis": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "question-words-basic": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.5
+    },
+    "ta-form": {
+     "n": 14,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "tai-desire": {
+     "n": 11,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "te-form-basic": {
+     "n": 15,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "te-imasu-progressive": {
+     "n": 21,
+     "target_used_fail": 0.0952,
+     "overall_fail": 0.1905
+    },
+    "te-kudasai-request": {
+     "n": 12,
+     "target_used_fail": 0.1667,
+     "overall_fail": 0.3333
+    },
+    "to-exhaustive-listing": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.25
+    },
+    "toki-ni-when-basic": {
+     "n": 14,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.2143
+    }
+   }
+  },
+  "haiku": {
+   "n": 938,
+   "target_used_fail": 0.0778,
+   "overall_fail": 0.2345,
+   "per_point": {
+    "arimasu-existence-inanimate": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.1667
+    },
+    "counter-en-money": {
+     "n": 11,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.1818
+    },
+    "counter-fun-minute": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.1667
+    },
+    "counter-hon-long": {
+     "n": 12,
+     "target_used_fail": 0.1667,
+     "overall_fail": 0.25
+    },
+    "counter-ji-oclock": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "counter-mai-flat": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "counter-people-nin": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.1667
+    },
+    "counter-sai-age": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "counter-tsu": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "da-plain-copula": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.5
+    },
+    "dake-only-basic": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.25
+    },
+    "deshita-past-polite-copula": {
+     "n": 11,
+     "target_used_fail": 0.0909,
+     "overall_fail": 0.5455
+    },
+    "desu-polite-copula": {
+     "n": 11,
+     "target_used_fail": 0.1818,
+     "overall_fail": 0.2727
+    },
+    "dewa-arimasen-negative-polite-copula": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.25
+    },
+    "ga-hoshii-wanting-thing": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.5
+    },
+    "hou-ga-comparative": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.5
+    },
+    "i-adj-adverbial-ku": {
+     "n": 16,
+     "target_used_fail": 0.0625,
+     "overall_fail": 0.375
+    },
+    "i-adj-desu-politeness": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "i-adj-te-joining-kute": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "i-adjective-negative": {
+     "n": 11,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.1818
+    },
+    "i-adjective-nonpast": {
+     "n": 12,
+     "target_used_fail": 0.1667,
+     "overall_fail": 0.1667
+    },
+    "i-adjective-past": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "ichiban-superlative": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.4167
+    },
+    "ikura-how-much": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.3333
+    },
+    "ikutsu-how-many": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "imasu-existence-animate": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "issho-ni-together": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "jikan-time-duration": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "kara-cause": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.5
+    },
+    "koko-soko-asoko-doko": {
+     "n": 11,
+     "target_used_fail": 0.0909,
+     "overall_fail": 0.3636
+    },
+    "kono-sono-ano-dono-attributive": {
+     "n": 11,
+     "target_used_fail": 0.0909,
+     "overall_fail": 0.0909
+    },
+    "kore-sore-are-demonstratives": {
+     "n": 12,
+     "target_used_fail": 0.1667,
+     "overall_fail": 0.6667
+    },
+    "location-nouns-ue-shita": {
+     "n": 7,
+     "target_used_fail": 0.1429,
+     "overall_fail": 0.1429
+    },
+    "mada-not-yet": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.0833
+    },
+    "mai-every-prefix": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.25
+    },
+    "masen-polite-negative-verb": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "masendeshita-polite-past-negative-verb": {
+     "n": 12,
+     "target_used_fail": 0.1667,
+     "overall_fail": 0.25
+    },
+    "masenka-invitation": {
+     "n": 16,
+     "target_used_fail": 0.25,
+     "overall_fail": 0.375
+    },
+    "mashita-polite-past-verb": {
+     "n": 16,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.125
+    },
+    "mashou-ka-invitation": {
+     "n": 12,
+     "target_used_fail": 0.25,
+     "overall_fail": 0.5
+    },
+    "mashou-volitional": {
+     "n": 18,
+     "target_used_fail": 0.0556,
+     "overall_fail": 0.0556
+    },
+    "masu-polite-verb": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "mo-mo-both": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.3333
+    },
+    "mou-ta-already": {
+     "n": 11,
+     "target_used_fail": 0.0909,
+     "overall_fail": 0.2727
+    },
+    "na-adj-adverbial-ni": {
+     "n": 11,
+     "target_used_fail": 0.0909,
+     "overall_fail": 0.3636
+    },
+    "na-adj-te-joining-de": {
+     "n": 12,
+     "target_used_fail": 0.3333,
+     "overall_fail": 0.75
+    },
+    "na-adjective-attributive": {
+     "n": 12,
+     "target_used_fail": 0.4167,
+     "overall_fail": 0.4167
+    },
+    "na-adjective-negative": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "na-adjective-nonpast": {
+     "n": 11,
+     "target_used_fail": 0.0909,
+     "overall_fail": 0.3636
+    },
+    "na-adjective-past": {
+     "n": 12,
+     "target_used_fail": 0.3333,
+     "overall_fail": 0.4167
+    },
+    "nai-de-kudasai": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "nai-form": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.25
+    },
+    "nanji-what-time": {
+     "n": 12,
+     "target_used_fail": 0.1667,
+     "overall_fail": 0.25
+    },
+    "nanyoubi-day-of-week": {
+     "n": 7,
+     "target_used_fail": 0.2857,
+     "overall_fail": 0.4286
+    },
+    "particle-de-means": {
+     "n": 13,
+     "target_used_fail": 0.3077,
+     "overall_fail": 0.4615
+    },
+    "particle-e-direction": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.25
+    },
+    "particle-ga-subject": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "particle-ka-question": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "particle-kara-from": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.4167
+    },
+    "particle-made-until": {
+     "n": 12,
+     "target_used_fail": 0.5833,
+     "overall_fail": 0.5833
+    },
+    "particle-mo-also": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "particle-ne-seeking-agreement": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0833
+    },
+    "particle-ni-target": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.25
+    },
+    "particle-no-possession": {
+     "n": 12,
+     "target_used_fail": 0.3333,
+     "overall_fail": 0.4167
+    },
+    "particle-o-object": {
+     "n": 11,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "particle-to-and-with": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.25
+    },
+    "particle-wa-topic": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.0833
+    },
+    "particle-ya-non-exhaustive": {
+     "n": 12,
+     "target_used_fail": 0.1667,
+     "overall_fail": 0.25
+    },
+    "particle-yo-emphasis": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "question-words-basic": {
+     "n": 12,
+     "target_used_fail": 0.1667,
+     "overall_fail": 0.4167
+    },
+    "ta-form": {
+     "n": 14,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.1429
+    },
+    "tai-desire": {
+     "n": 11,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.0
+    },
+    "te-form-basic": {
+     "n": 15,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.1333
+    },
+    "te-imasu-progressive": {
+     "n": 21,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.1905
+    },
+    "te-kudasai-request": {
+     "n": 12,
+     "target_used_fail": 0.0833,
+     "overall_fail": 0.3333
+    },
+    "to-exhaustive-listing": {
+     "n": 12,
+     "target_used_fail": 0.0,
+     "overall_fail": 0.25
+    },
+    "toki-ni-when-basic": {
+     "n": 14,
+     "target_used_fail": 0.2143,
+     "overall_fail": 0.5
+    }
+   }
+  }
+ }
+}

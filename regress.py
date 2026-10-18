@@ -1,0 +1,370 @@
+#!/usr/bin/env python3
+"""Frozen regression corpus: make a change measurable instead of arguable.
+
+THE PROBLEM THIS SOLVES
+-----------------------
+Every measurement in this project has had the same weakness. A run draws a fresh
+random set of required words per grammar point and generates ~12 sentences from them,
+so a per-point failure rate at n=12 moves 8.3pp per sentence. Comparing two runs means
+comparing two fresh draws, and the difference you see is dominated by which words
+happened to be drawn. Three times now a change was correctly motivated and then
+unmeasurable -- judged rates moved within noise and the two judges did not even agree
+which run was better.
+
+WHAT CAN AND CANNOT BE FROZEN
+-----------------------------
+- Sentences: freezing SENTENCES only tests the judge. Re-judging identical text is
+  the clean case, and that is what `run` does.
+- Generation: cannot be frozen -- sampling at temperature is the point. But the
+  largest single source of cross-run variance is the WORD DRAW, not the sampling.
+  `gen` holds the words fixed, so before/after is paired on vocabulary per word.
+
+So: `freeze` records the draw; `run` re-judges frozen sentences (judge changes);
+`gen` regenerates from frozen words (pool/frame/regex/POS changes).
+
+USAGE
+-----
+  python regress.py freeze                      # record the draw (~5s, no API)
+  python regress.py run --label base --judge luna     # baseline verdicts
+  python regress.py run --label cand --judge luna     # after a change
+  python regress.py diff base cand                    # paired comparison
+  python regress.py gen --label cand --judge luna     # frozen-word generation
+"""
+
+import argparse
+import collections
+import json
+import os
+import random
+import sys
+import time
+
+GEN = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, GEN)
+RUNS = os.path.join(os.path.dirname(GEN), "runs")
+REG = os.path.join(RUNS, "regress")
+FREEZE_DIR = os.path.join(GEN, "data", "regression")
+
+# how many required words to freeze per grammar point. 12 matches the observed
+# per-point sample size, so a frozen run is cost-comparable with a live one.
+K_WORDS = 12
+
+
+# ---------------------------------------------------------------- freeze
+
+def freeze(force=False):
+    """Record a deterministic required-word draw per grammar point.
+
+    Deterministic in the grammar point id, so re-running `freeze` reproduces the same
+    draw. It does NOT re-run the ledger rotation: the point is to hold vocabulary
+    fixed across time, which is the opposite of what the ledger does.
+    """
+    import guardrails as G
+
+    targets = json.load(open(os.path.join(GEN, "data", "targets.json"),
+                             encoding="utf-8"))["targets"]
+    lex = json.load(open(os.path.join(GEN, "data", "lexicon.json"), encoding="utf-8"))
+    pools = G.build_pools(lex)
+    rows = []
+    for t in targets:
+        gp = t["grammar_point_id"]
+        need = G.pos_need(t["pattern"], t.get("meaning_en", ""), gp)
+        pool = G.filter_pool(gp, pools.get(need) or pools["noun"])
+        if not pool:
+            print(f"  {gp:<38} NO POOL (skipped)")
+            continue
+        # deterministic per point, independent of run order and of the ledger
+        rnd = random.Random(f"regress:{gp}")
+        words = sorted({(w["text"] if isinstance(w, dict) else str(w)) for w in pool})
+        chosen = rnd.sample(words, min(K_WORDS, len(words)))
+        rows.append({
+            "grammar_point_id": gp,
+            "pattern": t.get("pattern", ""),
+            "meaning_en": t.get("meaning_en", ""),
+            "frame": t.get("frame", ""),
+            "check_regex": t.get("check_regex"),
+            "pos_check": t.get("pos_check"),
+            "required": chosen,
+        })
+    os.makedirs(FREEZE_DIR, exist_ok=True)
+    out = os.path.join(FREEZE_DIR, "inputs.jsonl")
+    with open(out, "w", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    tot = sum(len(r["required"]) for r in rows)
+    print(f"froze {len(rows)} points, {tot} word slots -> {out}")
+    print(f"  re-running freeze reproduces this exactly (seeded by grammar point id)")
+
+
+def load_frozen():
+    p = os.path.join(FREEZE_DIR, "inputs.jsonl")
+    if not os.path.exists(p):
+        sys.exit("no frozen draw -- run: python regress.py freeze")
+    return [json.loads(l) for l in open(p, encoding="utf-8") if l.strip()]
+
+
+# ---------------------------------------------------------------- run (judge)
+
+def _out_dir(label):
+    d = os.path.join(REG, label)
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def run_judge(label, judge, limit=0, reuse=None):
+    """Judge a fixed sentence set and store verdicts for `diff`.
+
+    With --reuse, judges an existing verdict file's sentences (a judge-change test).
+    Otherwise judges the highest-fidelity corpus available, so the SET is stable.
+    """
+    import rubric_judge as RJ
+    import guardrails as G
+
+    d = _out_dir(label)
+    if reuse:
+        src = reuse
+    else:
+        # the current corpus, flattened to unique (gp, sentence) pairs
+        src = os.path.join(RUNS, "vtfix", "input.jsonl")
+        if not os.path.exists(src):
+            sys.exit(f"no corpus at {src}")
+    rows = [json.loads(l) for l in open(src, encoding="utf-8") if l.strip()]
+    rows = [r for r in rows if r.get("japanese")]
+    if limit:
+        rows = rows[:limit]
+    print(f"{label}: judging {len(rows)} frozen sentences with {judge}")
+
+    out = os.path.join(d, f"verdicts_{judge}.jsonl")
+    done = set()
+    if os.path.exists(out):
+        for l in open(out, encoding="utf-8"):
+            try:
+                r = json.loads(l); done.add((r["grammar_point_id"], r["japanese"]))
+            except Exception:
+                pass
+    todo = [r for r in rows if (r["grammar_point_id"], r["japanese"]) not in done]
+    print(f"  {len(done)} already judged, {len(todo)} to go")
+
+    tg = {t["grammar_point_id"]: t for t in
+          json.load(open(os.path.join(GEN, "data", "targets.json"),
+                         encoding="utf-8"))["targets"]}
+    log = open(out, "a", encoding="utf-8")
+    t0, cost, n, nod = time.time(), 0.0, 0, 0
+    for k in range(0, len(todo), 6):
+        b = todo[k:k + 6]
+        try:
+            res, usage, finish = RJ.judge_batch(b, model=judge)
+            cost += float(usage.get("cost", 0) or 0)
+            for src_r, v in zip(b, res):
+                if v is None:
+                    nod += 1; continue
+                rec = dict(src_r)
+                rec["model"] = judge
+                rec.update({k2: v[k2] for k2 in RJ.DIMENSIONS})
+                rec.update({"span": v.get("span", ""), "reason": v.get("reason", ""),
+                            "reason_codes": v["reason_codes"],
+                            "failed_dimensions": v["failed_dimensions"],
+                            "overall": v["overall"],
+                            "span_ok": v["span_ok"],
+                            "span_pattern_ok": v.get("span_pattern_ok"),
+                            "evidence_conflict": v.get("evidence_conflict", False)})
+                log.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                n += 1
+        except Exception as e:
+            print(f"  {type(e).__name__}: {str(e)[:110]}", flush=True)
+            time.sleep(3)
+        log.flush()
+        if (k // 6) % 20 == 0:
+            print(f"    b{k//6+1:>4}  {n} written  {time.time()-t0:.0f}s", flush=True)
+    log.close()
+    print(f"  wrote {n}  no_verdict {nod}  ${cost:.5f}  {time.time()-t0:.0f}s")
+
+
+# ---------------------------------------------------------------- gen (frozen words)
+
+def run_gen(label, judge, model=None, points=0, per_word=1):
+    """Regenerate from the FROZEN words, so before/after is paired on vocabulary."""
+    import guardrails as G
+    import rubric_judge as RJ
+    import generate2 as G2
+
+    frozen = load_frozen()
+    if points:
+        frozen = frozen[:points]
+    d = _out_dir(label)
+    out = os.path.join(d, "gen.jsonl")
+    key = RJ.load_key(None)
+    tg = {t["grammar_point_id"]: t for t in
+          json.load(open(os.path.join(GEN, "data", "targets.json"),
+                         encoding="utf-8"))["targets"]}
+
+    log = open(out, "a", encoding="utf-8")
+    t0, n = time.time(), 0
+    for row in frozen:
+        gp = row["grammar_point_id"]
+        t = dict(tg.get(gp) or {})
+        t["grammar_point_id"] = gp
+        for word in row["required"]:
+            try:
+                got, usage, content = None, None, None
+                # one sentence, one required word: same shape as the live generator,
+                # so the only thing held fixed is WHICH words, not how many
+                from guardrails import build_user, system_for
+                required = [{"text": word}]
+                el, usage, content = G2.call(system_for(t), build_user(t, required, per_word),
+                                             round(random.uniform(0.7, 1.0), 2))
+                for s in G2.parse(content)[:per_word]:
+                    log.write(json.dumps({
+                        "grammar_point_id": gp, "japanese": s.strip(),
+                        "required_word": word,
+                        "pattern": t.get("pattern", ""),
+                        "meaning_en": t.get("meaning_en", ""),
+                        "frame": t.get("frame", ""),
+                    }, ensure_ascii=False) + "\n")
+                    n += 1
+            except Exception as e:
+                print(f"  {gp} {word}: {type(e).__name__} {str(e)[:80]}", flush=True)
+        log.flush()
+        print(f"  {gp:<38} {n} sentences  {time.time()-t0:.0f}s", flush=True)
+    log.close()
+    print(f"wrote {n} -> {out}")
+    print(f"next: judge it, then `diff` against another label's gen file")
+    return out
+
+
+# ---------------------------------------------------------------- diff
+
+def _key(r):
+    return (r.get("grammar_point_id"), r.get("japanese"))
+
+
+def _load_verdicts(d):
+    p = os.path.join(REG, d, "verdicts_luna.jsonl")
+    if not os.path.exists(p):
+        cands = [f for f in os.listdir(os.path.join(REG, d)) if f.startswith("verdicts_")]
+        if not cands:
+            sys.exit(f"no verdicts in {d}")
+        p = os.path.join(REG, d, cands[0])
+    return [json.loads(l) for l in open(p, encoding="utf-8") if l.strip()], p
+
+
+def diff(a, b):
+    """PAIRED comparison: only sentences present in both, verdicts compared per sentence.
+
+    This is the whole point. A paired test on identical text has no draw variance, so
+    a small effect is resolvable -- unlike two fresh runs, where one sentence at n=12
+    is worth 8.3pp. McNemar's exact test on the discordant pairs, computed here so the
+    number does not depend on trusting a summary.
+    """
+    A, pa = _load_verdicts(a)
+    B, pb = _load_verdicts(b)
+    am = {_key(r): r for r in A}
+    bm = {_key(r): r for r in B}
+    both = sorted(set(am) & set(bm))
+    print(f"A = {pa}  ({len(A)} verdicts)")
+    print(f"B = {pb}  ({len(B)} verdicts)")
+    print(f"paired on {len(both)} identical sentences "
+          f"(A-only {len(set(am)-set(bm))}, B-only {len(set(bm)-set(am))})")
+    if not both:
+        sys.exit("nothing paired -- the two labels judged different sentence sets")
+
+    # each field has its own "bad" encoding -- comparing them all as == "fail" silently
+    # reported span_ok as 0.0%/0.0%, because span_ok is True/False/None, not a string.
+    # span_ok=False means the judge QUOTED A SPAN THAT IS NOT IN THE SENTENCE, which is
+    # the one signal here that is unambiguous judge error rather than a policy call.
+    def _bad(dim, val):
+        if dim == "overall":
+            return val == "fail"
+        if dim == "target_used":
+            return val == "fail"
+        if dim == "span_ok":
+            return val is False
+        if dim == "evidence_conflict":
+            return bool(val)
+        return val == "fail"
+
+    DIMS = ("target_used", "overall", "span_ok", "evidence_conflict")
+    for dim in DIMS:
+        a_fail = b1 = b2 = b3 = b4 = 0
+        for k in both:
+            x = _bad(dim, am[k].get(dim)); y = _bad(dim, bm[k].get(dim))
+            if x and not y: b1 += 1
+            if y and not x: b2 += 1
+            if x and y: b3 += 1
+            if not x and not y: b4 += 1
+        n = len(both)
+        ra, rb = (b1 + b3) / n, (b2 + b3) / n
+        print(f"\n  {dim:<20} A {ra:>6.1%}  ->  B {rb:>6.1%}   ({rb-ra:+.1%})")
+        print(f"     {'A ok -> B fail':<22}{b2:>5}   (regressions)")
+        print(f"     {'A fail -> B ok':<22}{b1:>5}   (fixes)")
+        print(f"     {'both fail / both ok':<22}{b3:>5} / {b4}")
+        if b1 + b2:
+            p = _mcnemar_exact(b1, b2)
+            print(f"     McNemar exact p = {p:.2e}   {'SIGNIFICANT' if p < 0.05 else 'not significant'}")
+
+    # per-point movement, which is what a worklist is built from
+    per = collections.defaultdict(lambda: [0, 0, 0])
+    for k in both:
+        gp = k[0]
+        x = am[k].get("target_used") == "fail"
+        y = bm[k].get("target_used") == "fail"
+        per[gp][0] += x and not y
+        per[gp][1] += y and not x
+        per[gp][2] += 1
+    moved = [(gp, f, w, n) for gp, (f, w, n) in per.items() if f or w]
+    moved.sort(key=lambda x: -(x[1] + x[2]))
+    print(f"\n  points whose target_used moved: {len(moved)}/{len(per)}")
+    for gp, f, w, n in moved[:14]:
+        print(f"     {gp:<38} +{f} fixed  -{w} broken   (n={n})")
+
+
+def _mcnemar_exact(b, c):
+    """Two-sided exact McNemar on discordant pairs b and c."""
+    from math import comb
+    n = b + c
+    if n == 0:
+        return 1.0
+    k = min(b, c)
+    tail = sum(comb(n, i) for i in range(0, k + 1)) / (2 ** n)
+    return min(1.0, 2 * tail)
+
+
+# ---------------------------------------------------------------- cli
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("freeze", help="record the deterministic required-word draw")
+    p.add_argument("--force", action="store_true")
+
+    p = sub.add_parser("run", help="judge a fixed sentence set")
+    p.add_argument("--label", required=True)
+    p.add_argument("--judge", default="openai/gpt-6-luna")
+    p.add_argument("--limit", type=int, default=0)
+    p.add_argument("--reuse", default=None, help="judge these sentences instead of the corpus")
+
+    p = sub.add_parser("gen", help="regenerate from the frozen words")
+    p.add_argument("--label", required=True)
+    p.add_argument("--judge", default="openai/gpt-6-luna")
+    p.add_argument("--model", default=None)
+    p.add_argument("--points", type=int, default=0)
+    p.add_argument("--per-word", type=int, default=1)
+
+    p = sub.add_parser("diff", help="paired comparison of two labels")
+    p.add_argument("a"); p.add_argument("b")
+
+    a = ap.parse_args()
+    if a.cmd == "freeze":
+        freeze(a.force)
+    elif a.cmd == "run":
+        run_judge(a.label, a.judge, a.limit, a.reuse)
+    elif a.cmd == "gen":
+        run_gen(a.label, a.judge, a.model, a.points, a.per_word)
+    elif a.cmd == "diff":
+        diff(a.a, a.b)
+
+
+if __name__ == "__main__":
+    main()
