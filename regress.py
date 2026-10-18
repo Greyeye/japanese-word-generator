@@ -117,6 +117,48 @@ def freeze(force=False):
     with open(out, "w", encoding="utf-8") as f:
         for r in rows:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+    # A reference set is only useful if the thing it was frozen AGAINST is recorded
+    # with it. Store the fixture hash, the identity of the curated data that produced
+    # the draw, and the commit -- otherwise a future reader cannot tell whether a
+    # baseline and a fixture belong to the same world.
+    import hashlib
+    import subprocess as _sp
+    raw = open(out, "rb").read()
+    try:
+        commit = _sp.run(["git", "rev-parse", "HEAD"], cwd=GEN, capture_output=True,
+                         text=True, timeout=20).stdout.strip() or None
+    except Exception:
+        commit = None
+    man = {
+        "frozen_sha256": hashlib.sha256(raw).hexdigest(),
+        "points": len(rows),
+        "word_slots": sum(len(r["required"]) for r in rows),
+        "k_words_per_point": K_WORDS,
+        "schema": 1,
+        "creation_commit": commit,
+        "note": ("Replaced by `freeze --force` only. A forced replacement archives the "
+                 "previous manifest under replaced/ so the change is recorded rather "
+                 "than only printed."),
+    }
+    # the data identity lives in regen_loop; reuse it so the two cannot disagree
+    try:
+        import regen_loop as _R
+        man["data_sha256"] = _R.data_sha256()
+        man["prompt_sha256"] = _R.prompt_sha256()
+    except Exception as e:
+        man["identity_error"] = str(e)[:120]
+    mpath = os.path.join(FREEZE_DIR, "MANIFEST.json")
+    if os.path.exists(mpath):
+        os.makedirs(os.path.join(FREEZE_DIR, "replaced"), exist_ok=True)
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        os.replace(mpath, os.path.join(FREEZE_DIR, "replaced", f"MANIFEST-{stamp}.json"))
+        print(f"  archived the previous manifest -> replaced/MANIFEST-{stamp}.json")
+    with open(mpath, "w", encoding="utf-8") as f:
+        json.dump(man, f, ensure_ascii=False, indent=1)
+    print(f"  manifest -> {mpath}")
+    print(f"    frozen_sha256 {man['frozen_sha256'][:16]}  "
+          f"data_sha256 {man.get('data_sha256','?')}  commit {commit or '?'}")
     tot = sum(len(r["required"]) for r in rows)
     print(f"froze {len(rows)} points, {tot} word slots -> {out}")
     print(f"  re-running freeze reproduces this exactly (seeded by grammar point id)")

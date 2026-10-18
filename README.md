@@ -649,21 +649,67 @@ materialised at load time, never computed at query time.
   force expensive regeneration, while a generation change must never reuse old output.
   Those are different invalidation rules and are named differently for that reason.
 
+  **The identity covers the effective request, not just the prompt text.** Hashing only
+  the template was insufficient: `build_user()` constructs the actual user message from
+  the targets and the drawn words, so a change there alters the request while
+  `regen_prompt`'s text stays identical. The identity therefore hashes:
+
+  | component | why |
+  |---|---|
+  | `prompt_sha256` | `regen_prompt` + `build_user` **source** + system message |
+  | `data_sha256` | `targets.json`, `lexicon.json`, the noun-class files |
+  | `model`, `temperature_range`, `max_tokens` | request parameters |
+  | `schema` | payload shape, so an old hash is never read under a new field set |
+
+  The data component matters concretely: the transitive-pool change altered all 77
+  points' pools with **zero edits to any prompt**, so a template-only hash would have
+  reported the same identity across a materially different generator.
+
+  What it does **not** claim: identical configuration does not guarantee identical
+  sentences from a stochastic model. The hash establishes configuration identity, not
+  output reproducibility — the generated text and its request metadata are the record
+  of what happened. And nothing here reads the README or unrelated code, so a
+  display-only change invalidates nothing.
+
   ```
-  prompt_sha256     404bf3edd2e51991
-  config (luna)     14626756cd1957c8
-  config (haiku)    afc443d2f747d0fc
+  prompt_sha256     b6bacef5b133025c
+  data_sha256       f8b53a364d434343
+  config (luna)     fcef60be202ff991
+  config (haiku)    ed8927ba49f39f2c
   judge  (luna)     400a70d1cefab311
   ```
 
-- **Unknown provenance is not silently upgraded to known.** The previous version read
-  a config-less row as `d.get("config") or config_key(MODEL)` — which *asserts* the old
-  row was produced by the current configuration, something nobody recorded and which
-  may well be false. Rows without a config now go into a separate `unknown` set,
-  are **not** treated as a match, and are regenerated; `--trust-legacy` accepts them
-  explicitly for a run that knows the history. Convenience for backward compatibility
-  and a claim about provenance are not the same thing.
+- **Provenance is classified in three ways, not one catch-all.** Rows are sorted into
+  `matching`, `missing`, `invalid` and `different`, because those all force
+  regeneration but mean different things:
 
+  | class | meaning | eligible for `--trust-legacy` |
+  |---|---|---|
+  | `missing` | no config recorded: unverifiable | **yes** (accepting, not verifying) |
+  | `invalid` | config present but malformed: a defect | no |
+  | `different` | a well-formed config that isn't this one | no |
+
+  Collapsing these into one `unknown` bucket would hide a malformed field behind an
+  unverifiable one. Only `missing` is genuinely "unknown provenance a human may choose
+  to accept"; a malformed field is always a defect to surface. The override reports how
+  many rows it reused and prints `accepting, not verifying` — the two are not the same
+  act. `classify_provenance()` is extracted so every case is tested directly rather than
+  only through a paid run.
+
+- **The reference set carries an auditable manifest.** `freeze` writes
+  `data/regression/MANIFEST.json` recording the fixture's own sha256, the
+  `data_sha256` and `prompt_sha256` it was drawn against, the schema version and the
+  creation commit — so a later reader can tell whether a baseline and a fixture belong
+  to the same world. A `--force` replacement archives the previous manifest under
+  `replaced/` rather than leaving the change only in console scrollback.
+
+
+- **The defect this replaced:** the previous version read a config-less row as
+  `d.get("config") or config_key(MODEL)` — which *asserts* the old row was produced
+  by the current configuration, something nobody recorded and which may well be
+  false. Turning missing evidence into asserted provenance is the exact failure the
+  config mechanism exists to prevent, reintroduced by the backward-compatibility
+  path. See the provenance table above for the current policy.
 - **Import isolation is tested behaviourally, not only structurally.** The AST test
   pins the structure of `main()`; `test_regress.py` pins the observable behaviour
   instead: `generate2` is imported in a **fresh subprocess** and asserted to print

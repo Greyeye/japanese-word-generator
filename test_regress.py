@@ -13,6 +13,7 @@ Two things this guards:
 Run:  python test_regress.py
 """
 
+import json
 import subprocess
 import sys
 import os
@@ -205,6 +206,34 @@ if os.path.exists(ref) and os.path.exists(base):
     check("re-freezing does not rewrite the file",
           _h.sha256(open(ref, "rb").read()).hexdigest(),
           _h.sha256(raw).hexdigest())
+
+print()
+print("the baseline is auditable")
+print()
+
+# A reference set is only useful if what it was frozen AGAINST is recorded with it,
+# or a later reader cannot tell whether a baseline and a fixture belong to one world.
+man_p = os.path.join(HERE, "data", "regression", "MANIFEST.json")
+check("a manifest is written", os.path.exists(man_p), True)
+if os.path.exists(man_p):
+    man = json.loads(open(man_p, encoding="utf-8").read())
+    import hashlib as _hh
+    actual = _hh.sha256(open(ref, "rb").read()).hexdigest()
+    check("the manifest records the fixture hash",
+          man.get("frozen_sha256"), actual)
+    check("the manifest records the data identity",
+          bool(man.get("data_sha256")), True)
+    check("the manifest records the creation commit",
+          bool(man.get("creation_commit")), True)
+    check("the manifest records the schema", man.get("schema"), 1)
+    check("the manifest counts match the fixture",
+          (man.get("points"), man.get("word_slots")), (77, 913))
+
+# a forced replacement must leave a record, not just console output
+rsrc = open(os.path.join(HERE, "regress.py"), encoding="utf-8").read()
+check("a forced replacement archives the old manifest",
+      "archived the previous manifest" in rsrc, True)
+check("the archive lives under replaced/", "replaced" in rsrc, True)
 
 print()
 if FAILS:

@@ -1,0 +1,11 @@
+{
+ "frozen_sha256": "42308e5ff196667a66dacca493a1df136043b8d8d14ea8778027c35064ded062",
+ "points": 77,
+ "word_slots": 913,
+ "k_words_per_point": 12,
+ "schema": 1,
+ "creation_commit": "26f3a80874a74e86d63882903049255ded91ca77",
+ "note": "Replaced by `freeze --force` only. A forced replacement archives the previous manifest under replaced/ so the change is recorded rather than only printed.",
+ "data_sha256": "f8b53a364d434343",
+ "prompt_sha256": "b6bacef5b133025c"
+}

@@ -95,35 +95,75 @@ MAX_TOKENS = 600
 
 
 def prompt_sha256():
-    """sha256 of the prompt TEMPLATE (function source + system message), truncated.
+    """sha256 of the full REQUEST-BUILDING logic, truncated.
 
-    Hashing the source is deliberate: it changes if the wording, the ordering, the
-    instruction count or a comment inside the template changes. Hashing a constant
-    string would not.
+    Covers regen_prompt, build_user and the system message. Hashing only the template
+    was not enough: build_user() constructs the actual user message from the targets and
+    the required words, so a change there alters the request while regen_prompt's text
+    stays identical. Hashing the sources means any edit -- wording, ordering,
+    instruction count, even a comment inside the template -- changes the identity.
     """
     import hashlib
     import inspect
-    src = inspect.getsource(regen_prompt) + "\n--SYS--\n" + REGEN_SYS
+    import guardrails as G
+    src = "\n".join([
+        inspect.getsource(regen_prompt),
+        "\n--BUILD_USER--\n",
+        inspect.getsource(G.build_user),
+        "\n--SYS--\n",
+        REGEN_SYS,
+    ])
     return hashlib.sha256(src.encode("utf-8")).hexdigest()[:16]
+
+
+# Bump when the SHAPE of the identity payload changes, so an old hash is never
+# mistaken for a new one under a different field set.
+HASH_SCHEMA = 2
+
+
+def data_sha256():
+    """Identity of the curated inputs that shape generation.
+
+    targets.json drives the pattern, frame and check_regex for every point; lexicon.json
+    and the class files drive which words a point's pool contains. A pool or target edit
+    changes what the model is asked for, so it must invalidate generation identity even
+    though no prompt text changed. The transitive-pool change is a worked example: it
+    altered 77 points' pools with zero edits to any prompt.
+    """
+    import hashlib
+    h = hashlib.sha256()
+    for name in ("targets.json", "lexicon.json", "noun_classes.json",
+                 "noun_class_overrides.json"):
+        p = os.path.join(GEN, "data", name)
+        h.update(name.encode())
+        if os.path.exists(p):
+            h.update(open(p, "rb").read())
+    return h.hexdigest()[:16]
 
 
 def config_key(model=None, temperature=None):
     """Content-addressed identity of the GENERATION configuration.
 
-    Includes the prompt hash, so a prompt edit produces a new identity automatically.
-    Deliberately does NOT include the judge model: a judge change must not force
-    expensive regeneration, while a generation change must never reuse old output.
-    Those are separate identities and are named separately for that reason.
+    Covers the effective request: the request-building source, the curated data that
+    shapes it, the model, and the sampling/token parameters. Deliberately does NOT
+    include the judge model -- a judge change must not force regeneration, while a
+    generation change must never reuse old output.
+
+    This establishes CONFIGURATION identity, not output reproducibility: identical
+    configuration does not guarantee identical sentences from a stochastic model. The
+    generated text and its request metadata are the record of what actually happened.
     """
     import hashlib
+    import json as _json
     payload = {
+        "schema": HASH_SCHEMA,
         "model": model or MODEL,
         "prompt_sha256": prompt_sha256(),
+        "data_sha256": data_sha256(),
         "prompt_version_label": PROMPT_VERSION,
         "temperature_range": list(TEMP_RANGE),
         "max_tokens": MAX_TOKENS,
     }
-    import json as _json
     return hashlib.sha256(
         _json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:16]
 
@@ -184,6 +224,38 @@ def gen_one(item, verdict, key, required=(), temperature=0.8, model=None):
         except Exception:
             out = re.findall(r'"([^"]{2,60})"', txt[i:j + 1])
     return [s.strip() for s in out if s.strip()], r.get("usage", {})
+
+
+def classify_provenance(rows, cfg):
+    """Sort existing output rows against the current generation config.
+
+    Returns (matching, missing, invalid, different) where each element is a set of
+    (parent, grammar_point_id) keys -- `different` is counted, not listed.
+
+    Extracted so each case can be tested directly rather than only through a paid run.
+    A single "unknown" bucket would hide three situations that all force regeneration
+    but mean different things:
+      missing   -- nothing recorded; provenance is unverifiable
+      invalid   -- a config field that cannot be compared; a defect
+      different -- a well-formed config that is simply not this one
+    """
+    def _cfg_ok(c):
+        return (isinstance(c, str) and len(c) == 16
+                and all(ch in "0123456789abcdef" for ch in c))
+
+    matching, missing, invalid, different = set(), set(), set(), 0
+    for d in rows:
+        k = (d.get("parent"), d.get("grammar_point_id"))
+        c = d.get("config")
+        if c is None:
+            missing.add(k)
+        elif not _cfg_ok(c):
+            invalid.add(k)
+        else:
+            matching.add(k + (c,))
+            if c != cfg:
+                different += 1
+    return matching, missing, invalid, different
 
 
 def main():
@@ -247,41 +319,53 @@ def main():
     print(f"\nto regenerate: {len(todo)}   not regenerating: {skipped}", flush=True)
 
     # --- regenerate ----------------------------------------------------
-    # Two sets, deliberately. A row with no recorded config has UNKNOWN provenance:
-    # loading the module default (which is what this did) silently asserts the old row
-    # was produced by the current configuration. It may well have been produced by a
-    # different model or prompt, so unknown is not a match -- those items regenerate.
-    # --trust-legacy accepts them explicitly for a run that knows the history.
-    done = set()            # (parent, gp, config) -- config verified identical
-    unknown = set()         # (parent, gp) -- provenance not recorded, NOT assumed
+    # Provenance, classified. A single `unknown` catch-all hides three different
+    # situations that all require regeneration but carry different diagnostic value:
+    #   missing   -- no config field recorded at all
+    #   invalid   -- a config field that is malformed, so it cannot be compared
+    #   different -- a well-formed config that simply is not this one
+    # Only `missing` is eligible for --trust-legacy; a malformed or mismatched field is
+    # never an unverifiable claim to accept, it is a defect to surface.
+    cfg = config_key(a.model)
     if os.path.exists(a.out):
+        prev = []
         for l in open(a.out, encoding="utf-8"):
             try:
-                d = json.loads(l)
-                k = (d["parent"], d.get("grammar_point_id"))
-                cfg0 = d.get("config")
-                if cfg0 is None:
-                    unknown.add(k)
-                else:
-                    done.add(k + (cfg0,))
+                prev.append(json.loads(l))
             except Exception:
-                pass
-    if unknown:
-        print(f"  {len(unknown)} existing rows have NO recorded config (unknown "
-              f"provenance)", flush=True)
-        print(f"  -> regenerating them, because unknown is not a match", flush=True)
-    if a.trust_legacy:
-        print(f"  --trust-legacy: accepting them as-is", flush=True)
+                pass                          # unparseable line is not a resume candidate
+        done, missing, invalid, diff_cfg = classify_provenance(prev, cfg)
+    else:
+        done, missing, invalid, diff_cfg = set(), set(), set(), 0
+    if missing or invalid or diff_cfg:
+        print(f"  resume: {len(done)} rows match this config", flush=True)
+        if diff_cfg:
+            print(f"          {diff_cfg} rows are a DIFFERENT known config "
+                  f"-> regenerating", flush=True)
+        if invalid:
+            print(f"          {len(invalid)} rows have a MALFORMED config "
+                  f"-> regenerating (defect, not a claim to accept)", flush=True)
+        if missing:
+            print(f"          {len(missing)} rows record NO config (unknown provenance)"
+                  f" -> regenerating", flush=True)
+            print(f"          unknown is not a match: it was not necessarily produced "
+                  f"by this configuration", flush=True)
+    if a.trust_legacy and missing:
+        print(f"  --trust-legacy: reusing {len(missing)} rows with UNVERIFIABLE "
+              f"provenance (accepting, not verifying)", flush=True)
+    elif a.trust_legacy:
+        print(f"  --trust-legacy: nothing to accept (no rows with missing config)",
+              flush=True)
     log = open(a.out, "a", encoding="utf-8")
-    cfg = config_key(a.model)
     print(f"  config {cfg}", flush=True)
     n = 0; cost = 0.0
     for r, v in todo:
         key3 = (r["japanese"], r["grammar_point_id"], cfg)
         if key3 in done:
             continue
-        # unknown-provenance rows are accepted only on an explicit opt-in
-        if a.trust_legacy and (r["japanese"], r["grammar_point_id"]) in unknown:
+        # only MISSING config is eligible for the opt-in; a malformed or mismatched
+        # config is a defect, never an unverifiable claim to accept
+        if a.trust_legacy and (r["japanese"], r["grammar_point_id"]) in missing:
             continue
         try:
             # ONE required word per sentence. generate2.py draws N words and asks
