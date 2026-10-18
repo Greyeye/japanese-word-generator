@@ -330,24 +330,48 @@ materialised at load time, never computed at query time.
   points. `target_used` fails on **8.0%**, overall-fail **16.0%** (gpt-6-luna,
   rubric judge). The old corpus's 55–60% figure was measured *conditional on
   already being rejected*, so it is not comparable.
-- **Six points fixed and re-measured** (same judge, before -> after `target_used`):
+- **Six points fixed and re-measured, under BOTH judges** (same prompts on both
+  samples, so the comparison isolates the fixes; `target_used` fail rate):
 
-  | point | before | after |
-  |---|---|---|
-  | location-nouns-ue-shita | 56% | 0% |
-  | masenka-invitation | 58% | 8% |
-  | na-adj-adverbial-ni | 58% | 9% |
-  | kono-sono-ano-dono-attributive | 58% | 17% |
-  | deshita-past-polite-copula | 42% | 0% |
-  | particle-o-object | 48% | 9% |
+  | point | luna before | luna after | haiku before | haiku after |
+  |---|---|---|---|---|
+  | location-nouns-ue-shita | 56% | 0% | 50% | 14% |
+  | na-adj-adverbial-ni | 58% | 9% | 58% | 9% |
+  | masenka-invitation | 58% | 8% | 75% | 17% |
+  | deshita-past-polite-copula | 42% | 0% | 50% | 0% |
+  | particle-o-object | 48% | 9% | 43% | 18% |
+  | kono-sono-ano-dono-attributive | 58% | 17% | 58% | 8% |
 
-  Corpus-wide `target_used` 11.4% -> 8.0%. Caveat: n≈12 per point, so one sentence
-  is 8.3pp; deltas under ~17pp are noise, and the two runs drew different vocabulary.
-- **Next worklist, surfaced by the loop's own failures:** `counter-tsu` (pool admits
-  箸/ペット/ギター, which take 膳/匹/本 not つ), `kono-sono-ano-dono` (二人 still in the
-  pool), `issho-ni-together` (所/ボタン pair unnaturally), `koko-soko-asoko-doko`
-  (中 gives 「箱の中はどこですか」), `da-plain-copula` (still emits です for a だ target),
-  `particle-no-possession` 67%, `question-words-basic` 36% (n=36, burns all retries).
+  All six improve substantially under both judges, so they are not artefacts of one
+  judge. Corpus-wide `target_used` 11.4% -> 8.0% (luna) and 13.7% -> 11.5% (haiku);
+  agreement 81.6% -> 82.9%. Caveat: n≈12 per point, so one sentence is 8.3pp;
+  deltas under ~17pp are noise, and the two runs drew different vocabulary.
+- **Next worklist — CONSENSUS of both judges (luna and haiku, current prompt), 13
+  points where they agree the pattern is missed on >=15% of sentences:**
+
+  | point | luna | haiku | n |
+  |---|---|---|---|
+  | na-adj-te-joining-de | 17% | 58% | 12 |
+  | question-words-basic | 36% | 36% | 36 |
+  | particle-de-means | 25% | 42% | 12 |
+  | da-plain-copula | 17% | 50% | 12 |
+  | na-adjective-attributive | 25% | 33% | 12 |
+  | na-adjective-past | 33% | 20% | 15 |
+  | masen-polite-negative-verb | 25% | 25% | 12 |
+  | particle-to-and-with | 17% | 33% | 12 |
+  | te-kudasai-request | 17% | 33% | 12 |
+  | mada-not-yet | 17% | 25% | 12 |
+  | mashou-volitional | 17% | 25% | 12 |
+  | counter-tsu | 18% | 18% | 28 |
+  | particle-kara-from | 17% | 17% | 12 |
+
+  `counter-tsu` independently corroborated by the regeneration loop, which found
+  the pool admits words counted with 膳/匹/本 rather than つ (「箸を二つください」).
+  `question-words-basic` burns all four retries every run.
+- **Points the judges irreconcilably disagree on — do not trust a single-judge rate:**
+  `nanyoubi-day-of-week` (luna 0% / haiku 100%, n=7), `particle-no-possession`
+  (67% / 0%), `dewa-arimasen-negative-polite-copula` (25% / 0%). These need more
+  sentences, and the weekday point may need human data — judges split 14% on it.
 - **Regeneration loop:** pooled over two runs, **233/256 (91%)** of sentences that
   were failing by construction came back passing, for ~$0.03.
 - **Level data is not trustworthy enough for a hard gate.** `n5_vocab` (673 words)
