@@ -176,14 +176,16 @@ print("provenance classification: missing / invalid / different / matching")
 print()
 
 CFG = R.config_key("m")
-good = {"parent": "P1", "grammar_point_id": "gp1", "config": CFG}
-other = {"parent": "P2", "grammar_point_id": "gp2", "config": R.config_key("other-model")}
+good = {"parent": "P1", "grammar_point_id": "gp1", "config": CFG,
+        "config_schema": R.HASH_SCHEMA}
+other = {"parent": "P2", "grammar_point_id": "gp2",
+         "config": R.config_key("other-model"), "config_schema": R.HASH_SCHEMA}
 none_c = {"parent": "P3", "grammar_point_id": "gp3"}
 bad_len = {"parent": "P4", "grammar_point_id": "gp4", "config": "abc"}
 bad_type = {"parent": "P5", "grammar_point_id": "gp5", "config": 12345}
 bad_hex = {"parent": "P6", "grammar_point_id": "gp6", "config": "zzzzzzzzzzzzzzzz"}
 
-match, miss, inv, diff = R.classify_provenance(
+match, miss, inv, incompat, diff = R.classify_provenance(
     [good, other, none_c, bad_len, bad_type, bad_hex], CFG)
 
 check("an identical config is a match", ("P1", "gp1", CFG) in match, True)
@@ -195,10 +197,13 @@ check("a non-string config is 'invalid'", ("P5", "gp5") in inv, True)
 check("a non-hex config is 'invalid'", ("P6", "gp6") in inv, True)
 check("nothing invalid leaked into missing", len(miss), 1)
 check("nothing missing leaked into invalid", len(inv), 3)
+# these rows carry no config_schema field, so they are 'incompatible', not comparable
+check("no row here is schema-incompatible", len(incompat), 0)
 
 # an empty file is not an error and not a match
-m2, s2, i2, d2 = R.classify_provenance([], CFG)
-check("no existing rows classifies as nothing", (len(m2), len(s2), len(i2), d2), (0, 0, 0, 0))
+m2, s2, i2, n2, d2 = R.classify_provenance([], CFG)
+check("no existing rows classifies as nothing",
+      (len(m2), len(s2), len(i2), len(n2), d2), (0, 0, 0, 0, 0))
 
 # only MISSING is eligible for the trust-legacy override
 rel = open(os.path.join(HERE, "regen_loop.py"), encoding="utf-8").read()
@@ -207,7 +212,7 @@ check("trust-legacy is scoped to missing config only",
 check("trust-legacy says accepting, not verifying",
       "accepting, not verifying" in rel, True)
 check("trust-legacy reports how many rows it reused",
-      "reusing {len(missing)} rows" in rel, True)
+      "reusing {len(missing)}/{total_prev} rows" in rel, True)
 
 print()
 print("generate2 import safety")
@@ -241,26 +246,73 @@ check("arg() handles a trailing valueless flag",
       "return a[i] if i < len(a) else True" in gsrc, True)
 
 print()
-print("the README's documented hash values match the code")
+print("three identities: configuration, request, output")
 print()
 
-# This drifted the moment I widened prompt_sha256: the README still listed the old
-# three values. A documented value that disagrees with the code is the recurring sin
-# across these review rounds, so assert it instead of re-checking by hand.
-readme = open(os.path.join(HERE, "README.md"), encoding="utf-8").read()
-live = {
-    "prompt_sha256": R.prompt_sha256(),
-    "data_sha256": R.data_sha256(),
-    "config (luna)": R.config_key("openai/gpt-6-luna"),
-    "config (haiku)": R.config_key("anthropic/claude-haiku-5.5"),
-    "judge  (luna)": R.judge_config_key("openai/gpt-6-luna"),
-}
-for label, val in live.items():
-    check(f"README lists the live {label} ({val})", val in readme, True)
+# The reviewer's point: two runs can share a config_key and still send different
+# requests, because the word draw differs. Keeping the identities separate means one
+# changed draw does not invalidate the whole configuration, while the change stays
+# individually auditable.
+ITEM = {"japanese": "水を飲みます。", "pattern": "Noun を Verb",
+        "meaning_en": "object marker", "frame": "N を V"}
+cfg1 = R.config_key("m")
+r_a = R.request_identity(ITEM, [{"text": "水"}], model="m", temperature=0.8)
+r_b = R.request_identity(ITEM, [{"text": "肉"}], model="m", temperature=0.8)
+check("a different word draw changes the REQUEST identity", r_a == r_b, False)
+check("...while the CONFIG identity is unchanged", R.config_key("m") == cfg1, True)
+check("the same request is stable",
+      r_a == R.request_identity(ITEM, [{"text": "水"}], model="m", temperature=0.8), True)
+check("a different temperature changes the request identity",
+      r_a == R.request_identity(ITEM, [{"text": "水"}], model="m", temperature=0.95), False)
+check("a different model changes the request identity",
+      r_a == R.request_identity(ITEM, [{"text": "水"}], model="other", temperature=0.8), False)
+check("a different target changes the request identity",
+      r_a == R.request_identity(dict(ITEM, pattern="Noun が Verb"),
+                                [{"text": "水"}], model="m", temperature=0.8), False)
+check("request identity is not the config identity", r_a == cfg1, False)
 
-# and no superseded value may linger in the block either
-for stale in ("404bf3edd2e51991", "14626756cd1957c8", "afc443d2f747d0fc"):
-    check(f"README has dropped the superseded {stale}", stale in readme, False)
+print()
+print("configuration schema is validated, not just the hash shape")
+print()
+
+CFG = R.config_key("m")
+# a well-formed hex hash under a different schema must NOT be treated as comparable
+stale = {"parent": "Q1", "grammar_point_id": "gq1",
+         "config": CFG, "config_schema": R.HASH_SCHEMA - 1}
+nosch = {"parent": "Q2", "grammar_point_id": "gq2", "config": CFG}
+cur = {"parent": "Q3", "grammar_point_id": "gq3",
+       "config": CFG, "config_schema": R.HASH_SCHEMA}
+m_, mi, inv, inc, df = R.classify_provenance([stale, nosch, cur], CFG)
+check("a well-formed hash under another schema is 'incompatible'",
+      ("Q1", "gq1") in inc, True)
+check("...and is NOT treated as matching", ("Q1", "gq1", CFG) in m_, False)
+check("a row with no schema field is 'incompatible', not matching",
+      ("Q2", "gq2") in inc, True)
+check("a current-schema row still matches", ("Q3", "gq3", CFG) in m_, True)
+check("nothing leaked into missing/invalid", (len(mi), len(inv)), (0, 0))
+check("nothing incompatible counted as merely different", df, 0)
+
+print()
+print("the README fingerprint block is generated, not hand-maintained")
+print()
+
+# four review rounds in a row saw a documented value drift from the code. The block is
+# now generated from one source of truth and checked, so it cannot go stale silently.
+import importlib.util as _ilu
+_spec = _ilu.spec_from_file_location("regress_mod", os.path.join(HERE, "regress.py"))
+rg = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(rg)
+
+check("fingerprints come from the live code",
+      rg.fingerprints()["config (luna)"], R.config_key("openai/gpt-6-luna"))
+readme = open(os.path.join(HERE, "README.md"), encoding="utf-8").read()
+check("the README carries the fingerprint markers",
+      rg.FP_START in readme and rg.FP_END in readme, True)
+check("the documented block matches the generated one",
+      rg.update_readme(check=True), 0)
+# the marker must appear exactly once, or "appears somewhere" could pass on a stray copy
+check("the fingerprint markers are unique",
+      (readme.count(rg.FP_START), readme.count(rg.FP_END)), (1, 1))
 
 print()
 if FAILS:

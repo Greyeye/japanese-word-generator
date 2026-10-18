@@ -117,7 +117,11 @@ def prompt_sha256():
 
 
 # Bump when the SHAPE of the identity payload changes, so an old hash is never
-# mistaken for a new one under a different field set.
+# mistaken for a new one under a different field set. A bump INVALIDATES all prior
+# config keys by definition: rows carrying an older schema are treated as `different`,
+# never as matching, which is the migration policy -- there is no attempt to upgrade
+# an old key to a new schema, because the fields that changed are exactly the ones the
+# old key did not cover.
 HASH_SCHEMA = 2
 
 
@@ -142,16 +146,17 @@ def data_sha256():
 
 
 def config_key(model=None, temperature=None):
-    """Content-addressed identity of the GENERATION configuration.
+    """CONFIGURATION identity of the generator: model, code, prompts, parameters, data.
 
-    Covers the effective request: the request-building source, the curated data that
-    shapes it, the model, and the sampling/token parameters. Deliberately does NOT
-    include the judge model -- a judge change must not force regeneration, while a
-    generation change must never reuse old output.
+    This answers "which generator made this?" It deliberately does NOT include the
+    per-request inputs (the grammar target, the drawn words), so drawing different words
+    does not invalidate the configuration -- that is what request_identity() is for.
 
-    This establishes CONFIGURATION identity, not output reproducibility: identical
-    configuration does not guarantee identical sentences from a stochastic model. The
-    generated text and its request metadata are the record of what actually happened.
+    Deliberately does NOT include the judge: a judge change must not force regeneration,
+    while a generation change must never reuse old output.
+
+    Establishes configuration identity, NOT output reproducibility: identical
+    configuration does not make a stochastic model deterministic.
     """
     import hashlib
     import json as _json
@@ -163,9 +168,38 @@ def config_key(model=None, temperature=None):
         "prompt_version_label": PROMPT_VERSION,
         "temperature_range": list(TEMP_RANGE),
         "max_tokens": MAX_TOKENS,
+        "reasoning": {"enabled": False},   # output-affecting API setting
+        "response_format": "json",        # what we ask for and parse
     }
     return hashlib.sha256(
         _json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+
+def request_identity(item, required, model=None, temperature=None):
+    """REQUEST identity: a fingerprint of the actual serialised request.
+
+    Distinct from config_key on purpose. Three identities, three questions:
+
+      config_key       which GENERATOR made this?      (model, code, prompts, data)
+      request_identity what exact INPUT was sent?      (target, words, params)
+      the output row   what came back?                 (the text, recorded as-is)
+
+    Two runs can share a config_key and differ here, because the word draw differs.
+    Keeping them separate means one changed draw does not invalidate the whole
+    configuration, while a changed draw is still individually auditable.
+    """
+    import hashlib
+    import json as _json
+    body = {
+        "model": model or MODEL,
+        "system": REGEN_SYS,
+        "user": regen_prompt(item, {"reason_codes": [], "reason": ""}, required),
+        "temperature": temperature,
+        "max_tokens": MAX_TOKENS,
+        "reasoning": {"enabled": False},
+    }
+    return hashlib.sha256(
+        _json.dumps(body, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:16]
 
 
 def judge_config_key(judge_model):
@@ -179,8 +213,11 @@ def judge_config_key(judge_model):
 
 def regen_prompt(item, verdict, required=()):
     """State exactly what was wrong, and ask for a fresh sentence -- not a fix."""
-    bad = ", ".join(verdict["reason_codes"])
-    dims = ", ".join(verdict["failed_dimensions"])
+    # .get with defaults: request_identity() rebuilds this prompt from the same inputs
+    # without a judge verdict, and a prompt builder crashing on a missing optional key
+    # is a fragility that would surface as a KeyError mid-run.
+    bad = ", ".join(verdict.get("reason_codes") or [])
+    dims = ", ".join(verdict.get("failed_dimensions") or [])
     words = "、".join(v["text"] for v in required) if required else ""
     return (
         "次の日本語の例文は、JLPT N5 の教材としては不合格でした。"
@@ -190,8 +227,8 @@ def regen_prompt(item, verdict, required=()):
         + (f"構造条件: {item['frame']}\n" if item.get("frame") else "")
         + (f"必ず使う語: {words}\n" if words else "")
         + f"\n前の例文: {item['japanese']}\n"
-        f"問題点: {bad}  （観点: {dims}）\n"
-        f"校閲者の指摘: {verdict.get('reason','')[:200]}\n\n"
+        + (f"問題点: {bad}  （観点: {dims}）\n" if (bad or dims) else "")
+        + f"校閲者の指摘: {verdict.get('reason','')[:200]}\n\n"
         "守ること:\n"
         "- 1文だけ。20文字以内。です・ます体。\n"
         "- 対象文法を文の中心として実際に使うこと。\n"
@@ -226,24 +263,34 @@ def gen_one(item, verdict, key, required=(), temperature=0.8, model=None):
     return [s.strip() for s in out if s.strip()], r.get("usage", {})
 
 
-def classify_provenance(rows, cfg):
+def classify_provenance(rows, cfg, schema=None):
     """Sort existing output rows against the current generation config.
 
-    Returns (matching, missing, invalid, different) where each element is a set of
-    (parent, grammar_point_id) keys -- `different` is counted, not listed.
+    Returns (matching, missing, invalid, incompatible, different) where each of the
+    first three is a set of (parent, grammar_point_id) keys and `different` is a count.
 
     Extracted so each case can be tested directly rather than only through a paid run.
-    A single "unknown" bucket would hide three situations that all force regeneration
-    but mean different things:
-      missing   -- nothing recorded; provenance is unverifiable
-      invalid   -- a config field that cannot be compared; a defect
-      different -- a well-formed config that is simply not this one
+    Five cases, because they all force regeneration but mean different things:
+
+      missing      -- nothing recorded; provenance is unverifiable
+      invalid      -- a config field that cannot be compared at all; a defect
+      incompatible -- a well-formed hash under a DIFFERENT hash schema; a stale key
+      different    -- a well-formed current-schema config that is simply not this one
+      matching     -- identical config, safe to reuse
+
+    `incompatible` exists because a hash being well-formed hexadecimal says nothing
+    about whether it was computed under the same payload shape. Without the schema
+    check, an old key would be silently compared against a new one and could even
+    collide by accident.
     """
+    if schema is None:
+        schema = HASH_SCHEMA
+
     def _cfg_ok(c):
         return (isinstance(c, str) and len(c) == 16
                 and all(ch in "0123456789abcdef" for ch in c))
 
-    matching, missing, invalid, different = set(), set(), set(), 0
+    matching, missing, invalid, incompatible, different = set(), set(), set(), set(), 0
     for d in rows:
         k = (d.get("parent"), d.get("grammar_point_id"))
         c = d.get("config")
@@ -251,11 +298,14 @@ def classify_provenance(rows, cfg):
             missing.add(k)
         elif not _cfg_ok(c):
             invalid.add(k)
+        elif d.get("config_schema") != schema:
+            # well-formed, but not comparable: it was computed under another payload
+            incompatible.add(k)
         else:
             matching.add(k + (c,))
             if c != cfg:
                 different += 1
-    return matching, missing, invalid, different
+    return matching, missing, invalid, incompatible, different
 
 
 def main():
@@ -334,25 +384,31 @@ def main():
                 prev.append(json.loads(l))
             except Exception:
                 pass                          # unparseable line is not a resume candidate
-        done, missing, invalid, diff_cfg = classify_provenance(prev, cfg)
+        done, missing, invalid, incompat, diff_cfg = classify_provenance(prev, cfg)
     else:
-        done, missing, invalid, diff_cfg = set(), set(), set(), 0
-    if missing or invalid or diff_cfg:
-        print(f"  resume: {len(done)} rows match this config", flush=True)
+        done, missing, invalid, incompat, diff_cfg = set(), set(), set(), set(), 0
+    total_prev = len(done) + len(missing) + len(invalid) + len(incompat)
+    if total_prev:
+        print(f"  resume: {len(done)}/{total_prev} rows carry this exact config",
+              flush=True)
         if diff_cfg:
-            print(f"          {diff_cfg} rows are a DIFFERENT known config "
+            print(f"          {diff_cfg} rows are a DIFFERENT config "
                   f"-> regenerating", flush=True)
+        if incompat:
+            print(f"          {len(incompat)} rows were written under another HASH "
+                  f"SCHEMA -> regenerating (not comparable, not merely different)",
+                  flush=True)
         if invalid:
             print(f"          {len(invalid)} rows have a MALFORMED config "
                   f"-> regenerating (defect, not a claim to accept)", flush=True)
         if missing:
             print(f"          {len(missing)} rows record NO config (unknown provenance)"
                   f" -> regenerating", flush=True)
-            print(f"          unknown is not a match: it was not necessarily produced "
-                  f"by this configuration", flush=True)
     if a.trust_legacy and missing:
-        print(f"  --trust-legacy: reusing {len(missing)} rows with UNVERIFIABLE "
-              f"provenance (accepting, not verifying)", flush=True)
+        pct = 100.0 * len(missing) / max(total_prev, 1)
+        print(f"  --trust-legacy: reusing {len(missing)}/{total_prev} rows "
+              f"({pct:.1f}%) with UNVERIFIABLE provenance "
+              f"(accepting, not verifying)", flush=True)
     elif a.trust_legacy:
         print(f"  --trust-legacy: nothing to accept (no rows with missing config)",
               flush=True)
@@ -373,7 +429,11 @@ def main():
             # sentence with four words produced cramming instead:
             # 「スリッパ、飛行機、ラジオカセット、肉があります。」
             req = draw_words(r["grammar_point_id"], 1)
-            outs, usage = gen_one(r, v, key, required=req, model=a.model)
+            temp = round(random.uniform(*TEMP_RANGE), 2)
+            # the request identity is computed from the SAME inputs the request uses
+            rid = request_identity(r, req, model=a.model, temperature=temp)
+            outs, usage = gen_one(r, v, key, required=req, model=a.model,
+                                  temperature=temp)
             cost += float(usage.get("cost", 0) or 0)
             for s in outs[:1]:                      # one fresh candidate per parent
                 req_txt = [w["text"] for w in req]
@@ -392,7 +452,9 @@ def main():
                     "meaning_en": r.get("meaning_en", ""),
                     "required": req_txt,
                     "gen_model": a.model,          # auditable: which model produced this
-                    "config": cfg,                 # model+prompt identity, part of the resume key
+                    "config": cfg,                 # GENERATOR identity: resume key
+                    "config_schema": HASH_SCHEMA,  # so an old key is never compared
+                    "request_id": rid,             # REQUEST identity: this exact input
                     "prompt_sha256": prompt_sha256(),   # evidence, not a convention
                     "regen_because": v["reason_codes"],
                     "failed_dimensions": v["failed_dimensions"],

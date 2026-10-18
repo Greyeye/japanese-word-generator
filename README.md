@@ -671,13 +671,60 @@ materialised at load time, never computed at query time.
   of what happened. And nothing here reads the README or unrelated code, so a
   display-only change invalidates nothing.
 
+  <!-- FINGERPRINTS:BEGIN -->
   ```
-  prompt_sha256     b6bacef5b133025c
-  data_sha256       f8b53a364d434343
-  config (luna)     fcef60be202ff991
-  config (haiku)    ed8927ba49f39f2c
-  judge  (luna)     400a70d1cefab311
+  prompt_sha256   fa7180f339514fdc
+  data_sha256     f8b53a364d434343
+  config_schema   2
+  config (luna)   d683f652ab0f1d3d
+  config (haiku)  5cef5361e6ba42bf
+  judge  (luna)   400a70d1cefab311
   ```
+  <!-- FINGERPRINTS:END -->
+
+- **Three identities, three questions, deliberately not one hash.**
+
+  | identity | answers | changes when |
+  |---|---|---|
+  | `config_key()` | which GENERATOR made this? | model, code, prompts, params, data |
+  | `request_identity()` | what exact INPUT was sent? | target, drawn words, temperature |
+  | the output row | what came back? | the text, recorded as-is |
+
+  Two runs can share a `config_key` and still send different requests, because the word
+  draw differs. Keeping them separate means one changed draw does not invalidate the
+  whole configuration, while the change stays individually auditable. The test asserts
+  exactly that pair: a different draw changes the request identity while the config
+  identity is unchanged.
+
+  The config payload also carries output-affecting API settings (`reasoning`,
+  `response_format`), not just the model and token budget -- a setting that changes the
+  response must change the identity.
+
+- **The manifest's relationship to the fixture is enforced, not just recorded.**
+  `verify_manifest()` checks the fixture hash, the manifest schema, the data and prompt
+  identities, and the presence of a creation commit; `python regress.py verify` exits
+  non-zero on any mismatch. Writing is atomic (temp file + rename), and the manifest is
+  published last, so a failure between the two writes cannot leave a new fixture beside
+  an old manifest.
+
+  **The fixture hash is over CRLF-normalised content, not raw bytes.** The fixture was
+  first written in text mode on Windows (CRLF) and is now written in binary (LF), so its
+  raw bytes changed when the draw did not -- the hash moved from `42308e5f…` to
+  `c71e529e…` for a byte-identical draw. Git's own line-ending normalisation is the same
+  hazard at checkout. `.gitattributes` forces LF for the fixture and manifest, and the
+  hash ignores line endings, so neither can move it.
+
+  A mismatch reports different consequences because they are different problems: a
+  **data** change means the draw itself is stale and must be re-frozen; a **prompt**
+  change leaves the draw valid but makes any baseline taken against it not comparable.
+
+- **The README's fingerprint values are generated, not hand-maintained.**
+  Four review rounds running, a documented value drifted from the code the moment the
+  identity changed. The block is now written between the BEGIN and END
+  fingerprint markers by `python regress.py docs`, and `docs --check` reports a documented-vs-actual
+  table and exits non-zero when stale -- so a failure says what to change rather than
+  merely that a string is missing. The test asserts the block matches what would be
+  generated and that the markers appear exactly once, so a stray copy cannot satisfy it.
 
 - **Provenance is classified in three ways, not one catch-all.** Rows are sorted into
   `matching`, `missing`, `invalid` and `different`, because those all force
@@ -687,173 +734,13 @@ materialised at load time, never computed at query time.
   |---|---|---|
   | `missing` | no config recorded: unverifiable | **yes** (accepting, not verifying) |
   | `invalid` | config present but malformed: a defect | no |
-  | `different` | a well-formed config that isn't this one | no |
+  | `incompatible` | well-formed, but written under another **hash schema** | no |
+  | `different` | a well-formed current-schema config that isn't this one | no |
+  | matching | identical config: safe to reuse | n/a |
 
-  Collapsing these into one `unknown` bucket would hide a malformed field behind an
-  unverifiable one. Only `missing` is genuinely "unknown provenance a human may choose
-  to accept"; a malformed field is always a defect to surface. The override reports how
-  many rows it reused and prints `accepting, not verifying` — the two are not the same
-  act. `classify_provenance()` is extracted so every case is tested directly rather than
-  only through a paid run.
-
-- **The reference set carries an auditable manifest.** `freeze` writes
-  `data/regression/MANIFEST.json` recording the fixture's own sha256, the
-  `data_sha256` and `prompt_sha256` it was drawn against, the schema version and the
-  creation commit — so a later reader can tell whether a baseline and a fixture belong
-  to the same world. A `--force` replacement archives the previous manifest under
-  `replaced/` rather than leaving the change only in console scrollback.
-
-
-- **The defect this replaced:** the previous version read a config-less row as
-  `d.get("config") or config_key(MODEL)` — which *asserts* the old row was produced
-  by the current configuration, something nobody recorded and which may well be
-  false. Turning missing evidence into asserted provenance is the exact failure the
-  config mechanism exists to prevent, reintroduced by the backward-compatibility
-  path. See the provenance table above for the current policy.
-- **Import isolation is tested behaviourally, not only structurally.** The AST test
-  pins the structure of `main()`; `test_regress.py` pins the observable behaviour
-  instead: `generate2` is imported in a **fresh subprocess** and asserted to print
-  nothing but its marker, exit 0, emit no run banner, leave the dataset file
-  byte-identical, and complete with `socket.connect` monkey-patched to raise — so a
-  future import-time request fails the test rather than the invoice.
-
-  The statistics also have **hand-computed fixtures**: exact McNemar and sign-test
-  values are checked against binomial coefficients worked out by hand
-  (`mcnemar(0,10) = 2/1024`, `sign(7,10) = 2*176/1024`), plus synthetic point sets with
-  known discordance structure. A p-value that is merely plausible is not evidence.
-
-  One of those fixtures was wrong on first write — it asserted the bootstrap mean
-  equals the observed statistic exactly, and got -1.016 for -1. The code was right;
-  the claim ("unbiased in expectation") is about the expectation, so the test now
-  bounds the difference by the Monte Carlo standard error instead.
-
-
-- **The span cross-check is a diagnostic, not a fourth verdict.** `target_used` stays
-  the semantic judgement, `span_ok` says the span occurs, `span_pattern_ok` says it
-  overlaps the configured pattern, `overall` is the acceptance decision. A
-  `span_pattern_ok=false` record is neither accepted nor rejected on that basis alone:
-  it is a backlog entry, classified as a grammar-rule gap (the `i-adjective-nonpast`
-  attributive case), a judge-span slip, or a real target-usage defect.
-
-- **Generation changes and judge changes are measured separately.**
-  `regress.py run` re-judges a fixed sentence set, isolating the judge.
-  `regress.py gen` calls `generate2.py --fixwords` with the frozen draw, isolating the
-  generator by holding vocabulary constant. `--fixwords` already existed for exactly
-  this purpose; the first version of `regress.py gen` reimplemented the call instead
-  and got it wrong (it omitted the `meaning` key `build_user` needs), which is the
-  argument for reusing tested code rather than duplicating it.
-
-- **`generate2.py` had no `__main__` guard, and importing it launched a paid run.**
-  Its 185-line generation loop sat at module level, so `import generate2` in
-  `regress.py` started a full 77-point generation as a side effect. The loop is now
-  inside `main()`. Found only because the `gen` path was exercised — reading the code
-  would not have shown it.
-
-  My first attempt at that restructure was itself wrong: `call()` and `parse()` ended up
-  between `main()`'s header and its body, so the indented loop silently became the tail
-  of `parse()`. It compiled, and `main()` ran nothing — exit 0 with no output. The test
-  now asserts via the AST that the loop is inside `main()` and NOT inside `parse()`.
-
-  Restructuring also surfaced a pre-existing bug in `arg()`: a valueless flag at the end
-  of argv (`--append` last) raised `IndexError`. Latent until something ran that way.
-- **`regen_loop.py` ignored `--model`; fixed, with a test.** `gen_one()` built its
-  request from the module-level `MODEL` constant, so the flag was parsed and discarded
-  while `--judge-model` worked. Silent, and specifically dangerous: a generator
-  comparison run through this script would have compared luna against luna and looked
-  like a clean null result. Now passed through and recorded as `gen_model` in each
-  output row so a run is auditable after the fact. The resume key was also `parent`
-  alone — the same bug already fixed once in `judge_compare_haiku.py` — so it now keys
-  on `(parent, grammar_point_id)`. `test_regen_model.py` stubs the HTTP call and
-  asserts the model actually sent in the request body (5/5).
-
-- **The judge's target span is cross-checked against the point's own regex.** A span
-  being literally present proves it EXISTS, not that it is the target construction.
-  `span_pattern_ok` now requires the span to **overlap** a `check_regex` match — the
-  same regex the generator is filtered against, so mechanical and semantic evidence
-  refer to one construction instead of two lookups that can drift.
-
-  Overlap, not containment: a `を`-object regex matches from `を` onward (`を着ます`)
-  while the judge quotes `シャツを`, which reaches back before the match starts, so
-  containment calls a correct span a conflict. Measured on 938 sentences x 2 judges,
-  requiring a direct match flagged 23 cases of which nearly all were that boundary
-  artefact; overlap cuts it to 2 (luna) and 6 (haiku), **0 under both judges**.
-
-  Kept as an audit flag (`evidence_conflict`), never folded into `overall` — the judge
-  may legitimately quote a span wider than the match, so escalating it would
-  manufacture defects. What survives is real signal: both `i-adjective-nonpast` hits
-  are an attributive use (`黒いねこです。`) that the predicate-position regex cannot
-  match, which is a point-design gap rather than a judge error.
-
-- **Generator precision — all four generations, coverage on a like-for-like standard.**
-  The reported coverage figure changed meaning when the per-sentence filter landed (a
-  word used only in an off-pattern sentence stopped counting), so the two columns
-  differ. The old-standard column counts every generated sentence, as the pre-filter
-  runs did:
-
-  | generation | points | attempts | kept | dropped | cov (reported) | cov (old std) |
-  |---|---|---|---|---|---|---|
-  | 100% coverage required | 77 | 98 | 1021 | – | 99.6% | **99.0%** |
-  | 90% allowance | 77 | 84 | 965 | – | 99.1% | **98.8%** |
-  | + per-sentence filter | 77 | 94 | 931 | 67 | 97.0% | **98.9%** |
-  | + transitive pool | 77 | 92 | 939 | 34 | 97.6% | **98.6%** |
-
-  **Word coverage is flat — 98.6–99.0% — across every change.** The generator was
-  never the constraint on coverage; what moved was the attempt count (98 -> 92) and
-  how much off-pattern text gets dropped (67 -> 34). Any statement that coverage
-  "improved" or "regressed" over this work is a measurement-standard artefact. The
-  drop column starts at the filter change because nothing was filtered before it.
-
-- **Generator precision, measured on the after-fixes run (77 points, 1,021 kept
-  sentences, 210s, 0.21 s/sentence):** required-word coverage **909/913 = 99.6%**,
-  not 100% — four points missed one word each (`kara-cause`, `masu-polite-verb`,
-  `mou-ta-already`, `tai-desire`). Nine sentences were exact duplicates of another
-  (1,012 unique of 1,021). 75/77 points covered >=60% of their pool on attempt 1.
-  Retries cost 30 attempts across 9 points; the other 68 points needed exactly one.
-  Coverage was never 100%: the before-fixes run was 917/919 = **99.8%** with 76/77
-  on attempt 1. So 99.6% is not a regression from the fixes — the guardrail's
-  guarantee is "checked and retried", not "always satisfied".
-- **`counter-people-nin`'s check_regex was broken (41% match).** It read
-  `(にん|一人|二人|ひとり|ふたり)`, so 三人–十人 — written in kanji, containing no
-  kana `にん` — never matched, and the point burned all four retries on every run
-  while reporting failure. Fixed to `([一二三四五六七八九十]+人|何人|にん|ひとり|ふたり)`;
-  now 100% on the sentences it produced, with no false positives (bare 人 alone does
-  not match, so 「人がいます。」 is correctly rejected). The `+` matters: `*` accepted
-  bare 人.
-- **Three more points never satisfy `pattern_ok` and are model drift, not regex
-  bugs** — `question-words-basic` (61% match), `counter-tsu` (82%), `particle-ni-target`
-  (88%). The regex is satisfiable; the model simply produces off-pattern sentences
-  (「明日は晴れですか」 for a question-word point), burning all four retries. These
-  want a `frame`, not a regex change.
-- **`level_ok` is now derived in BOTH directions, and the reason it could not be
-  before was a bug in the lookup.** The above-N5 signal was unusable for three
-  separate reasons, all now fixed:
-
-  1. **The tokeniser's base form was not preferred.** `行きます` yields base `行く`
-     (N5) but surface `行き`, which `jlpt_all` grades N3. Falling back to the surface
-     flagged every ます-stem verb in the corpus: 行き n=39, 読み n=13, 帰り n=11. This
-     was the single largest source of false "above level" hits — 54 distinct flagged
-     words, now 18.
-  2. **Sub-POS was not filtered.** Suffixes (さん, graded N1) and non-independent
-     helpers (あり/くださる) are not vocabulary a learner chooses.
-  3. **`jlpt_all` contradicts the curated list on 56 words** (人->N1, 三->N1, 店->N1,
-     中->N3, 明日->N4) because it grades a homograph's other sense. `data/n5_extra.json`
-     records the 27 corrections needed beyond that, each an inspectable word.
-
-  Measured against hand-verified sets: **0 false positives on 27 N5 words, 0 false
-  negatives on 26 above-N5 words**. Corpus flags fell from 7.5% of sentences to 2.5%.
-  A tenth case (`友だち`, absent from both lists) correctly defers to the model rather
-  than deriving — both directions require the evidence to be complete, and any
-  unplaceable word leaves `level_ok` to the model.
-
-  Residual risk is bounded by policy: a false `LEVEL` failure does not trigger
-  regeneration (`regen_loop.NO_REGEN`), so the cost is a re-label decision, never a bad
-  sentence entering the corpus.
-- **Of the old 1,230-sentence corpus, 232 rejects are valid Japanese tagged to a
-  grammar point they do not exercise** — a re-labelling job (520 -> ~750 usable).
-- **`gpt-6.1-sol` rejected:** 20x the price of `gpt-6-luna` for a 2.5x higher real
-  error rate; it writes N1-literary Japanese when the product targets N5–N3.
-- **ChatGPT/Codex subscriptions do not help here.** Plus includes Codex, but Codex
-  is an agent allowance, not API access — on Plus the GPT-6 Luna lane is 350–3,000
-  *local messages* per 5h with an unpublished weekly cap, so 200k verdicts would need
-  ~2.3 days of continuous best-case allowance with none left for real work. The whole
-  100k corpus costs ~$15 at API rates.
+  `incompatible` exists because **a hash being well-formed hexadecimal says nothing
+  about whether it was computed under the same payload shape.** Without the schema
+  field, an old key would be silently compared against a new one and could even collide
+  by accident. A `HASH_SCHEMA` bump therefore invalidates every prior key by design --
+  rows carrying an older schema are never upgraded to matching, because the fields that
+  changed are exactly the ones the old key did not cover.

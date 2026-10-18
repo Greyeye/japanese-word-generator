@@ -36,7 +36,9 @@ import collections
 import json
 import os
 import random
+import re
 import sys
+import tempfile
 import time
 
 GEN = os.path.dirname(os.path.abspath(__file__))
@@ -49,8 +51,104 @@ FREEZE_DIR = os.path.join(GEN, "data", "regression")
 # per-point sample size, so a frozen run is cost-comparable with a live one.
 K_WORDS = 12
 
+# bump when the manifest payload shape changes; verify_manifest enforces it
+MANIFEST_SCHEMA = 1
+
 
 # ---------------------------------------------------------------- freeze
+
+def _atomic_write(path, data: bytes):
+    """Write via a temp file in the same directory, then rename.
+
+    The fixture and its manifest are two separate writes, so a failure between them
+    could leave a NEW fixture beside an OLD manifest -- an inconsistency that would
+    silently invalidate every comparison made against it. Publishing the manifest last
+    and atomically means the pair is either both old or both new.
+    """
+    d = os.path.dirname(path)
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".tmp-")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def fixture_sha256(path=None):
+    """Canonical sha256 of the frozen fixture.
+
+    Hashes a CRLF-normalised copy, not the raw file bytes. The fixture was originally
+    written in text mode on Windows (CRLF) and is now written atomically in binary
+    (LF), so raw bytes changed when nothing about the DRAW changed -- the hash moved
+    from 42308e5f... to c71e529e... for a byte-identical draw. Git's own line-ending
+    normalisation adds the same hazard at checkout. The manifest must fingerprint the
+    CONTENT, so it survives both.
+    """
+    import hashlib
+    path = path or os.path.join(FREEZE_DIR, "inputs.jsonl")
+    raw = open(path, "rb").read().replace(b"\r\n", b"\n")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def verify_manifest(verbose=True):
+    """Check the manifest actually describes the fixture that exists now.
+
+    Returns a list of problems (empty == consistent). A manifest is only worth having
+    if the relationship it asserts is enforced, so this is checked rather than assumed.
+    """
+    import hashlib
+    probs = []
+    mpath = os.path.join(FREEZE_DIR, "MANIFEST.json")
+    fpath = os.path.join(FREEZE_DIR, "inputs.jsonl")
+    if not os.path.exists(fpath):
+        return [f"no frozen fixture at {fpath}"]
+    if not os.path.exists(mpath):
+        return [f"no manifest at {mpath}"]
+    man = json.loads(open(mpath, encoding="utf-8").read())
+    actual = fixture_sha256(fpath)
+    if man.get("frozen_sha256") != actual:
+        probs.append(f"fixture sha256 mismatch: manifest {man.get('frozen_sha256')} "
+                     f"vs actual {actual}")
+    if man.get("schema") != MANIFEST_SCHEMA:
+        probs.append(f"manifest schema {man.get('schema')} != {MANIFEST_SCHEMA}")
+    # Two different consequences, worth separating:
+    #   a DATA change means the DRAW itself is different -- the fixture no longer
+    #     reflects the pools, so it must be re-frozen.
+    #   a PROMPT change leaves the draw valid but invalidates any baseline taken
+    #     against it, because the generator that produced those results no longer
+    #     exists. The fixture is fine; the BASELINE must be re-taken.
+    try:
+        import regen_loop as _R
+        if man.get("data_sha256") != _R.data_sha256():
+            probs.append("data_sha256 mismatch: the curated data changed, so the DRAW "
+                         "itself is stale -- re-freeze (freeze --force) and re-take "
+                         "the baseline")
+        if man.get("prompt_sha256") != _R.prompt_sha256():
+            probs.append("prompt_sha256 mismatch: the request-building code changed. "
+                         "The draw is still valid, but any baseline taken against it "
+                         "is not comparable -- re-take the baseline")
+    except Exception as e:
+        probs.append(f"could not recompute identities: {str(e)[:80]}")
+    if not man.get("creation_commit"):
+        probs.append("no creation_commit recorded")
+    if verbose:
+        if probs:
+            print("MANIFEST INCONSISTENT:")
+            for x in probs:
+                print(f"  - {x}")
+        else:
+            print(f"manifest consistent: fixture sha256 {actual[:16]}, "
+                  f"data {man.get('data_sha256')}, commit "
+                  f"{(man.get('creation_commit') or '?')[:12]}")
+    return probs
+
 
 def freeze(force=False):
     """Record a deterministic required-word draw per grammar point.
@@ -114,9 +212,9 @@ def freeze(force=False):
         print(f"frozen set unchanged ({len(rows)} points) -- nothing written")
         return
 
-    with open(out, "w", encoding="utf-8") as f:
-        for r in rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    fixture_bytes = ("\n".join(json.dumps(r, ensure_ascii=False) for r in rows)
+                     + "\n").encode("utf-8")
+    _atomic_write(out, fixture_bytes)
 
     # A reference set is only useful if the thing it was frozen AGAINST is recorded
     # with it. Store the fixture hash, the identity of the curated data that produced
@@ -124,18 +222,18 @@ def freeze(force=False):
     # baseline and a fixture belong to the same world.
     import hashlib
     import subprocess as _sp
-    raw = open(out, "rb").read()
     try:
         commit = _sp.run(["git", "rev-parse", "HEAD"], cwd=GEN, capture_output=True,
                          text=True, timeout=20).stdout.strip() or None
     except Exception:
         commit = None
     man = {
-        "frozen_sha256": hashlib.sha256(raw).hexdigest(),
+        "hash_note": "frozen_sha256 is over CRLF-normalised content, not raw bytes",
+        "frozen_sha256": fixture_sha256(out),
         "points": len(rows),
         "word_slots": sum(len(r["required"]) for r in rows),
         "k_words_per_point": K_WORDS,
-        "schema": 1,
+        "schema": MANIFEST_SCHEMA,
         "creation_commit": commit,
         "note": ("Replaced by `freeze --force` only. A forced replacement archives the "
                  "previous manifest under replaced/ so the change is recorded rather "
@@ -154,14 +252,106 @@ def freeze(force=False):
         stamp = time.strftime("%Y%m%d-%H%M%S")
         os.replace(mpath, os.path.join(FREEZE_DIR, "replaced", f"MANIFEST-{stamp}.json"))
         print(f"  archived the previous manifest -> replaced/MANIFEST-{stamp}.json")
-    with open(mpath, "w", encoding="utf-8") as f:
-        json.dump(man, f, ensure_ascii=False, indent=1)
+    # publish the manifest LAST and atomically: if this fails, the fixture is new but
+    # the manifest is still the old one, and verify_manifest will say so rather than
+    # the pair silently disagreeing.
+    _atomic_write(mpath, json.dumps(man, ensure_ascii=False, indent=1).encode("utf-8"))
     print(f"  manifest -> {mpath}")
     print(f"    frozen_sha256 {man['frozen_sha256'][:16]}  "
           f"data_sha256 {man.get('data_sha256','?')}  commit {commit or '?'}")
+    probs = verify_manifest(verbose=False)
+    if probs:
+        print("  WARNING: the manifest just written does not verify:")
+        for x in probs:
+            print(f"    - {x}")
+    else:
+        print("  manifest verifies against the fixture")
     tot = sum(len(r["required"]) for r in rows)
     print(f"froze {len(rows)} points, {tot} word slots -> {out}")
     print(f"  re-running freeze reproduces this exactly (seeded by grammar point id)")
+
+
+# ---------------------------------------------------------------- docs fingerprints
+
+FP_START = "<!-- FINGERPRINTS:BEGIN -->"
+FP_END = "<!-- FINGERPRINTS:END -->"
+
+
+def fingerprints():
+    """The live identity values, as a dict. SINGLE SOURCE OF TRUTH.
+
+    The README used to carry these by hand and went stale every time the identity
+    changed -- four review rounds running. The documented block is now generated from
+    here and asserted in the test suite, so prose and code cannot drift apart.
+    """
+    import regen_loop as R
+    return {
+        "prompt_sha256": R.prompt_sha256(),
+        "data_sha256": R.data_sha256(),
+        "config_schema": str(R.HASH_SCHEMA),
+        "config (luna)": R.config_key("openai/gpt-6-luna"),
+        "config (haiku)": R.config_key("anthropic/claude-haiku-5.5"),
+        "judge  (luna)": R.judge_config_key("openai/gpt-6-luna"),
+    }
+
+
+def fingerprint_block():
+    fp = fingerprints()
+    w = max(len(k) for k in fp)
+    lines = [FP_START, "```"] + [f"{k:<{w}}  {v}" for k, v in fp.items()] + ["```", FP_END]
+    # indented to sit inside the bullet it lives in
+    return "\r\n".join("  " + l for l in lines)
+
+
+def update_readme(path=None, check=False):
+    """Rewrite (or check) the fingerprint block in the README.
+
+    Reported as a diff of expected vs documented, not a bare "string not found", so a
+    failure says what to change rather than only that something changed.
+    """
+    path = path or os.path.join(GEN, "README.md")
+    txt = open(path, "rb").read().decode("utf-8")
+    i, j = txt.find(FP_START), txt.find(FP_END)
+    if i < 0 or j < 0:
+        print(f"no fingerprint block found in {path} (need {FP_START} ... {FP_END})")
+        return 1
+    # back up to the start of the LINE containing the marker, so the line's own
+    # indentation is replaced rather than duplicated (it was, giving BEGIN 4 spaces
+    # where END had 2)
+    ls = txt.rfind("\n", 0, i) + 1
+    le = txt.find("\n", j)
+    le = len(txt) if le < 0 else le
+    # keep the file's own line ending after the block. Consuming the LF but not the CR
+    # left a bare LF at the end of the END line, i.e. mixed endings in a CRLF file.
+    eol = "\r\n" if (le > 0 and txt[le - 1] == "\r") else ("\n" if le < len(txt) else "")
+    # `have` spans from the line start up to (not including) the LF, so in a CRLF file it
+    # ends with the CR. Compare against want+eol so a trailing CR is not mistaken for a
+    # content difference -- otherwise the check reported STALE immediately after writing.
+    have = txt[ls:le] + (txt[le] if le < len(txt) else "")
+    want = fingerprint_block() + eol
+    if have == want:
+        print("README fingerprints are up to date")
+        return 0
+    if check:
+        print("README fingerprints are STALE:")
+        def payload(t):
+            out = {}
+            for line in t.split("\r\n"):
+                m = re.match(r"\s*([A-Za-z_][\w ()]*?)\s{2,}(\S+)\s*$", line.rstrip("\r"))
+                if m:
+                    out[m.group(1).strip()] = m.group(2)
+            return out
+        hp, wp = payload(have), payload(want)
+        for k in sorted(set(hp) | set(wp)):
+            if hp.get(k) != wp.get(k):
+                print(f"  {k:<16} documented {hp.get(k, '<missing>'):<18} "
+                      f"actual {wp.get(k, '<missing>')}")
+        print(f"\n  fix: python regress.py docs")
+        return 1
+    txt = txt[:ls] + want + txt[le + (1 if le < len(txt) else 0):]
+    _atomic_write(path, txt.encode("utf-8"))
+    print("updated the README fingerprint block")
+    return 0
 
 
 def load_frozen():
@@ -558,6 +748,11 @@ def main():
     p = sub.add_parser("diff", help="paired comparison of two labels")
     p.add_argument("a"); p.add_argument("b")
 
+    p = sub.add_parser("docs", help="regenerate the README fingerprint block")
+    p.add_argument("--check", action="store_true", help="compare, do not write")
+
+    sub.add_parser("verify", help="check the manifest describes the current fixture")
+
     a = ap.parse_args()
     if a.cmd == "freeze":
         freeze(a.force)
@@ -569,6 +764,10 @@ def main():
         judge_gen(a.label, a.judge, a.limit)
     elif a.cmd == "diff":
         diff(a.a, a.b)
+    elif a.cmd == "docs":
+        sys.exit(update_readme(check=a.check))
+    elif a.cmd == "verify":
+        sys.exit(1 if verify_manifest() else 0)
 
 
 if __name__ == "__main__":

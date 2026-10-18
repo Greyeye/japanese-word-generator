@@ -1,11 +1,12 @@
 {
- "frozen_sha256": "42308e5ff196667a66dacca493a1df136043b8d8d14ea8778027c35064ded062",
+ "hash_note": "frozen_sha256 is over CRLF-normalised content, not raw bytes",
+ "frozen_sha256": "c71e529eaace23959010da1920bd8f23ea765bda5bcdf463b54674209c8d3f6c",
  "points": 77,
  "word_slots": 913,
  "k_words_per_point": 12,
  "schema": 1,
- "creation_commit": "26f3a80874a74e86d63882903049255ded91ca77",
+ "creation_commit": "755838bb56bb12d14d5663b4c38e3b3f82e08485",
  "note": "Replaced by `freeze --force` only. A forced replacement archives the previous manifest under replaced/ so the change is recorded rather than only printed.",
  "data_sha256": "f8b53a364d434343",
- "prompt_sha256": "b6bacef5b133025c"
+ "prompt_sha256": "fa7180f339514fdc"
 }

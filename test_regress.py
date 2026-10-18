@@ -16,6 +16,8 @@ Run:  python test_regress.py
 import json
 import subprocess
 import sys
+import shutil
+import tempfile
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -234,6 +236,77 @@ rsrc = open(os.path.join(HERE, "regress.py"), encoding="utf-8").read()
 check("a forced replacement archives the old manifest",
       "archived the previous manifest" in rsrc, True)
 check("the archive lives under replaced/", "replaced" in rsrc, True)
+
+print()
+print("the manifest invariant is enforced, not just recorded")
+print()
+
+# A manifest is only worth having if its relationship to the fixture is checked. These
+# are the reviewer's invariants: stale hashes, line-ending sensitivity, forced
+# replacement archiving, and the draw-vs-baseline distinction.
+import importlib.util as _ilu2
+_s2 = _ilu2.spec_from_file_location("rg2", os.path.join(HERE, "regress.py"))
+rg = _ilu2.module_from_spec(_s2)
+_s2.loader.exec_module(rg)
+
+check("a consistent manifest verifies", rg.verify_manifest(verbose=False), [])
+
+# 1. a tampered fixture must be detected
+fixture = os.path.join(HERE, "data", "regression", "inputs.jsonl")
+raw = open(fixture, "rb").read()
+try:
+    open(fixture, "wb").write(raw + b"\n")
+    probs = rg.verify_manifest(verbose=False)
+    check("a tampered fixture fails verification", len(probs) > 0, True)
+    check("...and the problem names the fixture hash",
+          any("sha256 mismatch" in x for x in probs), True)
+finally:
+    open(fixture, "wb").write(raw)
+
+# 2. line endings must NOT change the fingerprint -- the hash is over content
+try:
+    open(fixture, "wb").write(raw.replace(b"\n", b"\r\n"))
+    recorded = json.loads(open(os.path.join(HERE, "data", "regression", "MANIFEST.json"),
+                               encoding="utf-8").read())["frozen_sha256"]
+    check("CRLF does not change the canonical hash",
+          rg.fixture_sha256(fixture), recorded)
+    check("CRLF still verifies", rg.verify_manifest(verbose=False), [])
+finally:
+    open(fixture, "wb").write(raw)
+
+# 3. the hash must be over content, and say so
+mjson = json.loads(open(os.path.join(HERE, "data", "regression", "MANIFEST.json"),
+                        encoding="utf-8").read())
+check("the manifest states the hash is content-normalised",
+      "normalised" in (mjson.get("hash_note") or ""), True)
+
+# 4. writing is atomic, and the force path archives -- tested in a TEMP dir so the
+#    suite never mutates the repository it is checking
+import glob as _g
+_real_freeze = rg.FREEZE_DIR
+_tmp_freeze = tempfile.mkdtemp()
+try:
+    shutil.copy(fixture, os.path.join(_tmp_freeze, "inputs.jsonl"))
+    shutil.copy(os.path.join(HERE, "data", "regression", "MANIFEST.json"),
+                os.path.join(_tmp_freeze, "MANIFEST.json"))   # so a force has one to archive
+    rg.FREEZE_DIR = _tmp_freeze
+    rg.freeze(force=True)
+    leftovers = [x for x in _g.glob(os.path.join(_tmp_freeze, ".tmp-*"))]
+    check("no temp files left after an atomic write", leftovers, [])
+    check("the manifest verifies in the temp dir", rg.verify_manifest(verbose=False), [])
+    check("a force archived the previous manifest",
+          os.path.isdir(os.path.join(_tmp_freeze, "replaced")), True)
+    check("freeze is deterministic after a force",
+          rg.fixture_sha256(os.path.join(_tmp_freeze, "inputs.jsonl")),
+          mjson["frozen_sha256"])
+finally:
+    rg.FREEZE_DIR = _real_freeze
+    shutil.rmtree(_tmp_freeze, ignore_errors=True)
+
+# 5. the two consequences are distinguished in the message
+src_ = open(os.path.join(HERE, "regress.py"), encoding="utf-8").read()
+check("a data change is reported as a stale DRAW", "DRAW" in src_, True)
+check("a prompt change is reported as a stale BASELINE", "re-take the baseline" in src_, True)
 
 print()
 if FAILS:

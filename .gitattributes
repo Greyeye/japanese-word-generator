@@ -1,0 +1,5 @@
+# the frozen reference set is fingerprinted by content; force LF so a checkout's
+# line-ending settings cannot change its hash
+data/regression/inputs.jsonl text eol=lf
+data/regression/MANIFEST.json text eol=lf
+*.py text eol=lf
