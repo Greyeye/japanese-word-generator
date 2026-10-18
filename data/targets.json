@@ -166,7 +166,7 @@
    "meaning_en": "counter for people",
    "formality": "neutral",
    "register_instruction": "N5の学習者向けなので、基本的に「です・ます体」で書いてください。",
-   "check_regex": "(にん|一人|二人|ひとり|ふたり)",
+   "check_regex": "([一二三四五六七八九十]+人|何人|にん|ひとり|ふたり)",
    "vocab_hint": [
     "外",
     "其の",

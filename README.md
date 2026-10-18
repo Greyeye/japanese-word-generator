@@ -374,6 +374,24 @@ materialised at load time, never computed at query time.
   sentences, and the weekday point may need human data — judges split 14% on it.
 - **Regeneration loop:** pooled over two runs, **233/256 (91%)** of sentences that
   were failing by construction came back passing, for ~$0.03.
+- **Generator precision, measured on the after-fixes run (77 points, 1,021 kept
+  sentences, 210s, 0.21 s/sentence):** required-word coverage **909/913 = 99.6%**,
+  not 100% — four points missed one word each (`kara-cause`, `masu-polite-verb`,
+  `mou-ta-already`, `tai-desire`). Nine sentences were exact duplicates of another
+  (1,012 unique of 1,021). 75/77 points covered >=60% of their pool on attempt 1.
+  Retries cost 30 attempts across 9 points; the other 68 points needed exactly one.
+- **`counter-people-nin`'s check_regex was broken (41% match).** It read
+  `(にん|一人|二人|ひとり|ふたり)`, so 三人–十人 — written in kanji, containing no
+  kana `にん` — never matched, and the point burned all four retries on every run
+  while reporting failure. Fixed to `([一二三四五六七八九十]+人|何人|にん|ひとり|ふたり)`;
+  now 100% on the sentences it produced, with no false positives (bare 人 alone does
+  not match, so 「人がいます。」 is correctly rejected). The `+` matters: `*` accepted
+  bare 人.
+- **Three more points never satisfy `pattern_ok` and are model drift, not regex
+  bugs** — `question-words-basic` (61% match), `counter-tsu` (82%), `particle-ni-target`
+  (88%). The regex is satisfiable; the model simply produces off-pattern sentences
+  (「明日は晴れですか」 for a question-word point), burning all four retries. These
+  want a `frame`, not a regex change.
 - **Level data is not trustworthy enough for a hard gate.** `n5_vocab` (673 words)
   is curated but has malformed entries (`明い`, missing る); `jlpt_all` (8,050 words)
   contradicts it on 56 — 人->N1, 三->N1, 店->N1, 東->N1, 中->N3, 明日->N4 — and grades
