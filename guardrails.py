@@ -132,6 +132,24 @@ def load_classes(path=None):
     return data
 
 
+# Lexicon part-of-speech detail from JMdict (pos_raw), keyed by word. Independent of
+# noun_classes: noun_classes only covers nouns the classifier was asked about, while
+# pos_raw exists for every vocabulary entry and carries transitivity (vt/vi), which
+# is the one thing a regex cannot recover from the surface string.
+_POS_RAW = None
+
+
+def _pos_raw():
+    global _POS_RAW
+    if _POS_RAW is None:
+        try:
+            lex = json.load(open(os.path.join(DATA, "lexicon.json"), encoding="utf-8"))
+            _POS_RAW = {v["text"]: set(v.get("pos_raw") or ()) for v in lex.get("n5_vocab", [])}
+        except Exception:
+            _POS_RAW = {}
+    return _POS_RAW
+
+
 # A noun passes a rule if it matches ANY listed axis (union), because a noun can
 # qualify either by what it is (kind) or by how it is counted (shape).
 CLASS_RULES = {
@@ -185,14 +203,16 @@ CLASS_RULES = {
     # 「を」 must mark the DIRECT OBJECT. 「〜をする」 set phrases put を inside a fixed
     # expression rather than on the acted-upon noun: 「日曜日に買い物をします」.
     # (The lexicon tags those nouns as verbs, so they reach a verb-routed pool.)
-    # Restored to the full list after measuring the trimmed version. The POOL FILTER
-    # is the mechanism that works here; no_suru_setphrase almost never fires, because
-    # the model avoids producing サ変接続+を+する rather than generating it and being
-    # caught. Trimming the list therefore only re-admits words whose natural
-    # realisation is the blocked one (授業-style coverage thrash: the model drops the
-    # required word instead of using it) without buying anything. The POS check stays
-    # as a cheap backstop for realisations this list misses.
+    # を must mark a DIRECT OBJECT, so the pool is restricted to TRANSITIVE verbs via
+    # the lexicon's JMdict transitivity. 60 of the point's 136 verbs are vi-only, and
+    # an intransitive cannot take an object -- を ends up marking a path or departure
+    # (「公園を散歩します」/「バスを降ります」/「道を走ります」). That single mistake
+    # caused both of this point's symptoms: off-pattern sentences (which the
+    # per-sentence filter then dropped) AND the coverage collapse that followed.
+    # The short deny-list stays for サ変 set phrases whose を is a fixed collocation
+    # (「洗濯をします」) even though 洗濯 is itself transitive.
     "particle-o-object": {
+        "pos_raw_any": {"vt"},
         "not_text": r"^(買い物|洗濯|掃除|勉強|電話|仕事|食事|散歩|旅行|料理)$"},
     # この/その/あの/どの + Noun needs a DEMONSTRABLE thing. The bare 381-noun pool
     # admits counter words (八つ is ABSTRACT) and time words, giving
@@ -260,6 +280,22 @@ def noun_ok(gp, word, classes=None):
     nt = rule.get("not_text")
     if nt and re.search(nt, word):
         return False
+
+    # Lexicon transitivity (JMdict vt/vi), independent of noun_classes so it also
+    # applies to words the noun classifier never saw. This is what fixes
+    # particle-o-object: 60 of its 136 pool verbs are vi-only, and an intransitive
+    # verb cannot take a direct object, so を ends up marking a PATH or a DEPARTURE
+    # (「公園を散歩します」/「バスを降ります」/「道を走ります」) rather than an object.
+    # Both symptoms came from that one mistake: off-pattern sentences the filter then
+    # dropped, and coverage that collapsed with them.
+    pr_any = rule.get("pos_raw_any")
+    pr_none = rule.get("pos_raw_none")
+    if pr_any or pr_none:
+        pr = _pos_raw().get(word, set())
+        if pr_any and not (pr & set(pr_any)):
+            return False
+        if pr_none and (pr & set(pr_none)):
+            return False
 
     tm = rule.get("text_match")
     if tm:

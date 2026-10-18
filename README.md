@@ -493,6 +493,52 @@ materialised at load time, never computed at query time.
   (「公園を散歩します」, 「バスを降ります」) as well as objects, so its regex admits
   sentences the judge calls off-pattern. Removing them is why its judged
   `target_used` went 50% -> 0%.
+- **`particle-o-object`'s pool is restricted to TRANSITIVE verbs, from the lexicon's
+  JMdict transitivity (`pos_raw_any: {vt}`).** を must mark a direct object, but 60 of
+  the point's 136 pool verbs were vi-only, so を ended up marking a path or departure
+  (「公園を散歩します」/「バスを降ります」/「道を走ります」). One mistake caused both of
+  its symptoms — off-pattern sentences the filter then dropped, and the coverage
+  collapse that followed. Pool 126 -> 69. Measured on a full run:
+
+  | | before | after |
+  |---|---|---|
+  | attempts | 4 | **1** |
+  | word coverage | 7/12 (58%) | **11/12 (92%)** |
+  | on-pattern ratio | ~0.58 | **0.92** |
+  | sentences dropped corpus-wide | 67 | **34** |
+
+  The transitivity filter also removed the lexicon's mis-tagged nouns (お茶, 帽子,
+  授業, 作文, 暇, マッチ), which were reaching a verb pool.
+
+  **It is a CORRECTNESS fix, not a quality improvement, and the judged rates say so.**
+  Both judges show no separation: luna 5.9% -> 5.3% with 19 points improved and 18
+  worsened; haiku 7.2% -> 7.8% with 24 improved and 25 worsened. They do not even
+  agree on which run is better (luna prefers the vt pool, haiku prefers the filter).
+  The target point itself reads 0% -> 18%, which is 2 sentences out of 11. At ~12
+  sentences per point and ~80% judge agreement, an effect this size is not resolvable
+  — and it should not be claimed as one. What justifies keeping it is the
+  deterministic argument: an intransitive verb cannot take a direct object, so a pool
+  containing them guarantees off-pattern output regardless of what the model does.
+
+  This is a new rule axis (`pos_raw_any` / `pos_raw_none` in `noun_ok`), reading
+  JMdict vt/vi rather than `noun_classes`, so it applies to words the noun classifier
+  never saw. Transitivity is the one property a surface regex cannot recover.
+- **The consensus worklist shrank from 13 points to 8** after the per-sentence filter.
+  Re-derived from the current run, both judges agreeing the pattern is missed on >=15%:
+
+  | point | luna | haiku |
+  |---|---|---|
+  | particle-de-means | 42% | 25% |
+  | counter-fun-minute | 33% | 17% |
+  | mai-every-prefix | 33% | 17% |
+  | particle-e-direction | 25% | 33% |
+  | na-adjective-nonpast | 27% | 18% |
+  | na-adjective-attributive | 21% | 21% |
+  | na-adj-te-joining-de | 17% | 33% |
+  | masenka-invitation | 17% | 25% |
+
+  Still irreconcilable and not to be acted on from one judge: `ichiban-superlative`
+  (0% / 50%) and `particle-kara-from` (42% / 8%).
 - **Generator precision, measured on the after-fixes run (77 points, 1,021 kept
   sentences, 210s, 0.21 s/sentence):** required-word coverage **909/913 = 99.6%**,
   not 100% — four points missed one word each (`kara-cause`, `masu-polite-verb`,
@@ -514,12 +560,30 @@ materialised at load time, never computed at query time.
   (88%). The regex is satisfiable; the model simply produces off-pattern sentences
   (「明日は晴れですか」 for a question-word point), burning all four retries. These
   want a `frame`, not a regex change.
-- **Level data is not trustworthy enough for a hard gate.** `n5_vocab` (673 words)
-  is curated but has malformed entries (`明い`, missing る); `jlpt_all` (8,050 words)
-  contradicts it on 56 — 人->N1, 三->N1, 店->N1, 東->N1, 中->N3, 明日->N4 — and grades
-  明るい (plainly N5) as N1 while calling the counter 分 N1. So `level_ok` is derived
-  **asymmetrically**: a clean all-N5 word list forces `pass`, but no above-N5 signal
-  ever forces `fail`. Fixing this needs a real N5 list, not a better prompt.
+- **`level_ok` is now derived in BOTH directions, and the reason it could not be
+  before was a bug in the lookup.** The above-N5 signal was unusable for three
+  separate reasons, all now fixed:
+
+  1. **The tokeniser's base form was not preferred.** `行きます` yields base `行く`
+     (N5) but surface `行き`, which `jlpt_all` grades N3. Falling back to the surface
+     flagged every ます-stem verb in the corpus: 行き n=39, 読み n=13, 帰り n=11. This
+     was the single largest source of false "above level" hits — 54 distinct flagged
+     words, now 18.
+  2. **Sub-POS was not filtered.** Suffixes (さん, graded N1) and non-independent
+     helpers (あり/くださる) are not vocabulary a learner chooses.
+  3. **`jlpt_all` contradicts the curated list on 56 words** (人->N1, 三->N1, 店->N1,
+     中->N3, 明日->N4) because it grades a homograph's other sense. `data/n5_extra.json`
+     records the 27 corrections needed beyond that, each an inspectable word.
+
+  Measured against hand-verified sets: **0 false positives on 27 N5 words, 0 false
+  negatives on 26 above-N5 words**. Corpus flags fell from 7.5% of sentences to 2.5%.
+  A tenth case (`友だち`, absent from both lists) correctly defers to the model rather
+  than deriving — both directions require the evidence to be complete, and any
+  unplaceable word leaves `level_ok` to the model.
+
+  Residual risk is bounded by policy: a false `LEVEL` failure does not trigger
+  regeneration (`regen_loop.NO_REGEN`), so the cost is a re-label decision, never a bad
+  sentence entering the corpus.
 - **Of the old 1,230-sentence corpus, 232 rejects are valid Japanese tagged to a
   grammar point they do not exercise** — a re-labelling job (520 -> ~750 usable).
 - **`gpt-6.1-sol` rejected:** 20x the price of `gpt-6-luna` for a 2.5x higher real
