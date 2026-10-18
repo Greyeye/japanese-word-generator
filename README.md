@@ -374,6 +374,43 @@ materialised at load time, never computed at query time.
   sentences, and the weekday point may need human data — judges split 14% on it.
 - **Regeneration loop:** pooled over two runs, **233/256 (91%)** of sentences that
   were failing by construction came back passing, for ~$0.03.
+- **POS checks (`predicate_is_noun`, `no_suru_setphrase`) are correct but INERT —
+  they have never been observed to fire.** Attached to four points
+  (`deshita`/`desu`/`da-plain-copula` via `predicate_is_noun`; `particle-o-object`
+  via `no_suru_setphrase`), run as generation-time gates feeding the retry.
+
+  Unit-tested: `predicate_is_noun` 20/20 on good/bad pairs including no-copula
+  sentences (which must not fire), `no_suru_setphrase` 8/8. Both separate cases a
+  regex cannot, because the tokens differ only in **subcategory**:
+
+  ```
+  「今日は木曜日でした。」 木曜日[名詞/副詞可能] でし      -> noun predicate, OK
+  「村は静かでした。」   静か[名詞/形容動詞語幹] でし    -> not Noun + でした
+  「たばこを吸います。」  たばこ[名詞/一般] + を + 吸う    -> real object, OK
+  「買い物をします。」    買い物[名詞/サ変接続] + を + する -> verbal noun, reject
+  ```
+
+  But on 54 generated sentences across those four points the checks rejected **0**.
+  The model avoids the blocked realisations rather than producing them, so the
+  upstream fixes (frame + pool + regex) still do all the work and these are a cheap
+  backstop for the case where a `frame` hint is ignored. A `frame` is a prompt; a
+  check is a gate. They are not a measured improvement and should not be counted
+  as one.
+
+- **A proposed improvement that measurement rejected: trimming the
+  `particle-o-object` deny-list.** The argument was that the POS check generalises
+  the hand list, so the list could shrink to the words with no non-する realisation
+  and 電話 would become drawable again, making 「友だちに電話を掛けます」 reachable.
+  Measured: `particle-o-object` got **worse** — luna 9% -> 39%, haiku 18% -> 39% —
+  and the pool filter turns out to be the mechanism that actually works, because
+  re-admitting 電話/仕事/勉強 makes the model drop required words or reach for
+  awkward realisations. Reverted to the full 10-word list; the POS check stays as a
+  backstop.
+- **Beware draw variance when re-measuring a single point.** `da-plain-copula` moved
+  17% -> 0% (luna) and 50% -> 0% (haiku) across the same two runs, while nothing
+  about that point changed and its POS check never fired. With ~12 sentences per
+  point, one sentence is 8.3pp and a whole-point swing can be nothing at all. Only
+  the POS-rejection count (0) is a clean signal; the rates are not.
 - **Generator precision, measured on the after-fixes run (77 points, 1,021 kept
   sentences, 210s, 0.21 s/sentence):** required-word coverage **909/913 = 99.6%**,
   not 100% — four points missed one word each (`kara-cause`, `masu-polite-verb`,

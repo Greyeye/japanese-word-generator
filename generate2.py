@@ -197,8 +197,15 @@ for k, t in enumerate(todo, 1):
         # match satisfying the whole batch let most sentences miss the pattern while
         # the loop still reported success, which is why pattern_missing rose even
         # after the retry was added. Require most kept sentences to match.
-        if rx:
-            n_match = sum(1 for s in got_all if rx.search(s))
+        # The pattern must be met as a STRING (check_regex) and, where the point
+        # needs it, as a PART OF SPEECH (pos_check). Both are generation-time gates
+        # feeding the retry, so a bad realisation is regenerated instead of being
+        # caught later by a judge -- and POS catches cases a regex cannot, because
+        # 「木曜日でした」 and 「静かでした」 differ only in token subcategory.
+        pos_names = t.get("pos_check") or []
+        if rx or pos_names:
+            n_match = sum(1 for s in got_all
+                          if (rx.search(s) if rx else True) and G.pos_ok(s, pos_names))
             pat_ok = bool(got_all) and n_match >= 0.8 * len(got_all)
         else:
             pat_ok = True

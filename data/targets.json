@@ -261,7 +261,10 @@
     "昼御飯"
    ],
    "target_count": 20,
-   "status": "generated"
+   "status": "generated",
+   "pos_check": [
+    "predicate_is_noun"
+   ]
   },
   {
    "job_id": "n5-010-dake-only-basic",
@@ -314,7 +317,10 @@
    ],
    "target_count": 20,
    "status": "generated",
-   "frame": "名詞が文末の述語になるようにしてください（例: 今日は木曜日でした／向こうは学校でした）。「〜は静かでした」「〜は元気でした」のように、形容詞を述語にしないでください。文末は必ず「名詞 + でした」の形にします。"
+   "frame": "名詞が文末の述語になるようにしてください（例: 今日は木曜日でした／向こうは学校でした）。「〜は静かでした」「〜は元気でした」のように、形容詞を述語にしないでください。文末は必ず「名詞 + でした」の形にします。",
+   "pos_check": [
+    "predicate_is_noun"
+   ]
   },
   {
    "job_id": "n5-012-desu-polite-copula",
@@ -341,7 +347,10 @@
    ],
    "target_count": 20,
    "status": "generated",
-   "frame": "「〜です」または「〜でした」の形にしてください。"
+   "frame": "「〜です」または「〜でした」の形にしてください。",
+   "pos_check": [
+    "predicate_is_noun"
+   ]
   },
   {
    "job_id": "n5-013-dewa-arimasen-negative-polite-copula",
@@ -1709,7 +1718,10 @@
    ],
    "target_count": 20,
    "status": "generated",
-   "frame": "動詞が直接はたらきかける相手の名詞に「を」を付けてください（例: 父はたばこを吸います／先生は日本語を教えます）。「買い物をする」「洗濯をする」のような決まった言い方ではなく、動作の対象そのものに「を」を付けます。"
+   "frame": "動詞が直接はたらきかける相手の名詞に「を」を付けてください（例: 父はたばこを吸います／先生は日本語を教えます）。「買い物をする」「洗濯をする」のような決まった言い方ではなく、動作の対象そのものに「を」を付けます。",
+   "pos_check": [
+    "no_suru_setphrase"
+   ]
   },
   {
    "job_id": "n5-065-particle-to-and-with",

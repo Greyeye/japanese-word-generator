@@ -185,6 +185,13 @@ CLASS_RULES = {
     # 「を」 must mark the DIRECT OBJECT. 「〜をする」 set phrases put を inside a fixed
     # expression rather than on the acted-upon noun: 「日曜日に買い物をします」.
     # (The lexicon tags those nouns as verbs, so they reach a verb-routed pool.)
+    # Restored to the full list after measuring the trimmed version. The POOL FILTER
+    # is the mechanism that works here; no_suru_setphrase almost never fires, because
+    # the model avoids producing サ変接続+を+する rather than generating it and being
+    # caught. Trimming the list therefore only re-admits words whose natural
+    # realisation is the blocked one (授業-style coverage thrash: the model drops the
+    # required word instead of using it) without buying anything. The POS check stays
+    # as a cheap backstop for realisations this list misses.
     "particle-o-object": {
         "not_text": r"^(買い物|洗濯|掃除|勉強|電話|仕事|食事|散歩|旅行|料理)$"},
     # この/その/あの/どの + Noun needs a DEMONSTRABLE thing. The bare 381-noun pool
@@ -422,6 +429,80 @@ def _get_tokenizer():
         from janome.tokenizer import Tokenizer
         _TOKENIZER = Tokenizer()
     return _TOKENIZER
+
+
+# ---- morphological (POS) sentence checks ------------------------------------
+# Deterministic checks a string regex cannot express. Measured against our defect
+# classes, POS + subcategory separates cases that are IDENTICAL as strings:
+#
+#   「今日は木曜日でした。」  木曜日[名詞/副詞可能] でし      -> noun predicate, OK
+#   「村は静かでした。」    静か[名詞/形容動詞語幹] でし    -> na-adj, NOT Noun+でした
+#
+# Both match /でした/ and both pass word coverage; only the subcategory differs.
+# Likewise 「買い物をします」 is 買い物[名詞/サ変接続]+を+する, where を marks a
+# verbal noun rather than a direct object -- whereas 「たばこを吸います」 is
+# たばこ[名詞/一般]+を+吸う, a genuine object. The subcategory carries the rule.
+#
+# These are GENERATION-TIME checks feeding the retry (the role check_regex plays),
+# not a validation layer, and not a judge: morphology encodes no syntax, no
+# semantics and no naturalness. It cannot see 「水が要りませんか」 (an invitation
+# point, but a state question -- POS-identical to a real invitation) or
+# 「箸を二つください」 (counted with 膳, not つ -- 箸 and りんご tokenise the same).
+def _tokens(sentence):
+    out = []
+    for t in _get_tokenizer().tokenize(sentence):
+        out.append((t.surface, t.part_of_speech.split(",")))
+    return out
+
+
+def predicate_is_noun(sentence):
+    """The token in front of a copula must be a NOUN, not a na-adjective stem.
+
+    Note it deliberately looks at the token BEFORE the copula, not at whether the
+    sentence is well-formed: 「静かでした」 is perfectly good Japanese, it is simply
+    not an example of Noun + でした.
+    """
+    tk = _tokens(sentence)
+    for i, (surf, pos) in enumerate(tk):
+        if surf in ("でし", "です", "だ") and i > 0:
+            ppos = tk[i - 1][1]
+            if ppos[0] != "名詞":
+                return False
+            if len(ppos) > 1 and ppos[1] == "形容動詞語幹":
+                return False
+    return True
+
+
+def no_suru_setphrase(sentence):
+    """Reject 名詞/サ変接続 + を + する: the を marks a verbal noun, not an object.
+
+    This generalises the hand-written word list it replaces (買い物/洗濯/掃除/...)
+    and is strictly better: it does NOT exclude 電話, so 「友だちに電話を掛けます」
+    stays available while only 「電話をします」 is rejected. The old list barred the
+    word outright and lost the good sentence with it.
+    """
+    tk = _tokens(sentence)
+    for i in range(len(tk) - 2):
+        a, b, c = tk[i][1], tk[i + 1][0], tk[i + 2][0]
+        if (a[0] == "名詞" and len(a) > 1 and a[1] == "サ変接続"
+                and b == "を" and c in ("し", "する", "す")):
+            return False
+    return True
+
+
+POS_CHECKS = {
+    "predicate_is_noun": predicate_is_noun,
+    "no_suru_setphrase": no_suru_setphrase,
+}
+
+
+def pos_ok(sentence, names):
+    """True if every named POS check accepts `sentence`."""
+    for n in names or ():
+        fn = POS_CHECKS.get(n)
+        if fn is not None and not fn(sentence):
+            return False
+    return True
 
 
 class Ledger:
