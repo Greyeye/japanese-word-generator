@@ -76,6 +76,24 @@ MODEL = "openai/gpt-6-luna"
 OR_URL = "https://openrouter.ai/api/v1/chat/completions"
 MAX_ATTEMPTS = 2
 
+# Bump when regen_prompt() or the system message changes. It is part of the resume
+# identity below, so a prompt revision produces NEW candidates instead of silently
+# reusing output another prompt produced -- an output file labelled with one prompt
+# but containing another's work is worse than no resume at all.
+PROMPT_VERSION = "regen-v1"
+
+
+def config_key(model, prompt_version=PROMPT_VERSION):
+    """Identity of the configuration that produced a candidate.
+
+    A resume mechanism must identify the logical work item, and the work item here is
+    (sentence, grammar point, model, prompt) -- not just the sentence. Keying on
+    (parent, grammar_point_id) alone fixed one collision and left a worse one: changing
+    --model or the prompt would find the previous run's rows already "done" and skip
+    them, so a model comparison would silently reuse the old model's output.
+    """
+    return f"{model}|{prompt_version}"
+
 
 def regen_prompt(item, verdict, required=()):
     """State exactly what was wrong, and ask for a fresh sentence -- not a fix."""
@@ -188,18 +206,22 @@ def main():
     done = set()
     if os.path.exists(a.out):
         for l in open(a.out, encoding="utf-8"):
-            # keyed on (parent, grammar_point_id): keying on the parent text alone
-            # skips a point whose sentence happens to match another point's, the
-            # same resume-key bug already fixed once in judge_compare_haiku.py
+            # Keyed on (parent, grammar_point_id, config): the parent text alone skips a
+            # point whose sentence matches another point's, and adding the config stops
+            # a --model or prompt change from finding the previous run "already done"
+            # and silently reusing output produced by a different configuration.
             try:
                 d = json.loads(l)
-                done.add((d["parent"], d.get("grammar_point_id")))
+                done.add((d["parent"], d.get("grammar_point_id"),
+                          d.get("config") or config_key(MODEL)))
             except Exception:
                 pass
     log = open(a.out, "a", encoding="utf-8")
+    cfg = config_key(a.model)
+    print(f"  config {cfg}", flush=True)
     n = 0; cost = 0.0
     for r, v in todo:
-        if (r["japanese"], r["grammar_point_id"]) in done:
+        if (r["japanese"], r["grammar_point_id"], cfg) in done:
             continue
         try:
             # ONE required word per sentence. generate2.py draws N words and asks
@@ -226,6 +248,7 @@ def main():
                     "meaning_en": r.get("meaning_en", ""),
                     "required": req_txt,
                     "gen_model": a.model,          # auditable: which model produced this
+                    "config": cfg,                 # model+prompt identity, part of the resume key
                     "regen_because": v["reason_codes"],
                     "failed_dimensions": v["failed_dimensions"],
                     "judge_reason": (v.get("reason") or "")[:200],

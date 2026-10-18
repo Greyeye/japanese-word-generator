@@ -65,7 +65,7 @@ Nothing generated is written into the repo, and `.gitignore` catches strays.
 | 3 | `judge.py` | binary model judge → `valid` / `invalid` / `no_verdict` (superseded) |
 | 3b | `rubric_judge.py` | **multi-dimensional** judge: 6 verdicts + target span, codes derived |
 | 4b | `regen_loop.py` | judge `fail` -> regenerate with the failure stated (not correction) |
-| 4c | `regress.py` | frozen regression corpus: `freeze` / `run` / `gen` / `diff` (paired McNemar) |
+| 4c | `regress.py` | frozen regression corpus: `freeze` / `run` / `gen` / `judge-gen` / `diff` (paired McNemar + clustered) |
 | — | `test_regen_model.py` | asserts `--model` reaches the request body |
 | 4 | `kana_audit.py` → `repair_kana.py` | curated kana-spelling audit and repair |
 | 5 | `loader.py` → `push.py` | emit INSERT batches to `runs/load/`, then load |
@@ -592,6 +592,60 @@ materialised at load time, never computed at query time.
   imprecise "~16pp more lenient". `data/regression/baseline.json` records the
   starting point so a future change has something to diff against.
 
+- **`diff` also reports a CLUSTERED analysis, because 938 sentences are not 938
+  independent samples.** They come from 77 grammar points sharing regexes, frames and
+  vocabulary constraints, so failures within a point are correlated and a
+  sentence-level p-value overstates the evidence for generalising *across points*.
+  `diff` therefore reports, alongside exact McNemar: the per-point direction counts,
+  a sign test over the points that differ, and a bootstrap that resamples **points**,
+  not sentences.
+
+  Measured on the same luna-vs-haiku pair, the correction is real but the conclusions
+  hold:
+
+  | dimension | sentence McNemar | sign test over points | clustered bootstrap |
+  |---|---|---|---|
+  | target_used | p=1.2e-02 | p=4.1e-02 | 95% CI [-41, -4] |
+  | overall | p=2.8e-14 | p=1.2e-06 | 95% CI [-127, -67] |
+
+  Clustering costs `target_used` about an order of magnitude and `overall` almost
+  nothing. Luna is better on **24 of the 35** differing points for `target_used` and
+  **42 of 50** for `overall` — i.e. the advantage is broad-based, not carried by a few
+  points, which is the failure mode the clustered view exists to expose.
+
+  Direction convention, because it is easy to invert: a point counts toward "A better"
+  when haiku fails and luna passes. The first version of this printed "luna better on
+  11 points" for what was actually the opposite — the labels were swapped relative to
+  the count.
+
+- **The span cross-check is a diagnostic, not a fourth verdict.** `target_used` stays
+  the semantic judgement, `span_ok` says the span occurs, `span_pattern_ok` says it
+  overlaps the configured pattern, `overall` is the acceptance decision. A
+  `span_pattern_ok=false` record is neither accepted nor rejected on that basis alone:
+  it is a backlog entry, classified as a grammar-rule gap (the `i-adjective-nonpast`
+  attributive case), a judge-span slip, or a real target-usage defect.
+
+- **Generation changes and judge changes are measured separately.**
+  `regress.py run` re-judges a fixed sentence set, isolating the judge.
+  `regress.py gen` calls `generate2.py --fixwords` with the frozen draw, isolating the
+  generator by holding vocabulary constant. `--fixwords` already existed for exactly
+  this purpose; the first version of `regress.py gen` reimplemented the call instead
+  and got it wrong (it omitted the `meaning` key `build_user` needs), which is the
+  argument for reusing tested code rather than duplicating it.
+
+- **`generate2.py` had no `__main__` guard, and importing it launched a paid run.**
+  Its 185-line generation loop sat at module level, so `import generate2` in
+  `regress.py` started a full 77-point generation as a side effect. The loop is now
+  inside `main()`. Found only because the `gen` path was exercised — reading the code
+  would not have shown it.
+
+  My first attempt at that restructure was itself wrong: `call()` and `parse()` ended up
+  between `main()`'s header and its body, so the indented loop silently became the tail
+  of `parse()`. It compiled, and `main()` ran nothing — exit 0 with no output. The test
+  now asserts via the AST that the loop is inside `main()` and NOT inside `parse()`.
+
+  Restructuring also surfaced a pre-existing bug in `arg()`: a valueless flag at the end
+  of argv (`--append` last) raised `IndexError`. Latent until something ran that way.
 - **`regen_loop.py` ignored `--model`; fixed, with a test.** `gen_one()` built its
   request from the module-level `MODEL` constant, so the flag was parsed and discarded
   while `--judge-model` worked. Silent, and specifically dangerous: a generator

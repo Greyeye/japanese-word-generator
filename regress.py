@@ -183,53 +183,106 @@ def run_judge(label, judge, limit=0, reuse=None):
 # ---------------------------------------------------------------- gen (frozen words)
 
 def run_gen(label, judge, model=None, points=0, per_word=1):
-    """Regenerate from the FROZEN words, so before/after is paired on vocabulary."""
-    import guardrails as G
-    import rubric_judge as RJ
-    import generate2 as G2
+    """Regenerate from the FROZEN words, so before/after is paired on vocabulary.
+
+    Shells out to generate2.py with --fixwords, which is the flag built for exactly
+    this: it freezes the required-word list per point so two runs -- e.g. two models --
+    see an identical vocabulary. The first version of this function reimplemented the
+    call locally and got it wrong (it passed required words without the `meaning` key
+    build_user needs), which is what happens when tested code is duplicated instead of
+    reused. --fixwords also means the generator's own pool/ledger/retry logic is what
+    runs, so a generator change is measured on the real path.
+    """
+    import subprocess
 
     frozen = load_frozen()
     if points:
         frozen = frozen[:points]
     d = _out_dir(label)
-    out = os.path.join(d, "gen.jsonl")
-    key = RJ.load_key(None)
+    fw = os.path.join(d, "fixwords.json")
+    with open(fw, "w", encoding="utf-8") as f:
+        json.dump({r["grammar_point_id"]: r["required"] for r in frozen},
+                  f, ensure_ascii=False, indent=1)
+    attempts = os.path.join(d, "attempts.jsonl")
+    onlylist = os.path.join(d, "points.json")
+    with open(onlylist, "w", encoding="utf-8") as f:
+        json.dump([r["grammar_point_id"] for r in frozen], f, ensure_ascii=False)
+
+    cmd = [sys.executable, os.path.join(GEN, "generate2.py"),
+           "--fixwords", fw, "--onlylist", onlylist, "--out", attempts, "--append"]
+    if model:
+        cmd += ["--model", model]
+    print(f"  {' '.join(cmd[-6:])}")
+    r = subprocess.run(cmd, cwd=GEN)
+    if r.returncode != 0:
+        sys.exit(f"generate2 exited {r.returncode}")
+    print(f"\nwrote {attempts}")
+    print(f"next: judge it and `diff` against another label")
+
+
+def judge_gen(label, judge, limit=0):
+    """Judge the sentences a `gen` run produced, into the same label dir."""
+    import rubric_judge as RJ
+
+    d = _out_dir(label)
+    src = os.path.join(d, "attempts.jsonl")
+    if not os.path.exists(src):
+        sys.exit(f"no attempts at {src} -- run `gen` first")
     tg = {t["grammar_point_id"]: t for t in
           json.load(open(os.path.join(GEN, "data", "targets.json"),
                          encoding="utf-8"))["targets"]}
-
+    rows, seen = [], set()
+    for line in open(src, encoding="utf-8"):
+        line = line.strip()
+        if not line:
+            continue
+        r = json.loads(line)
+        if "error" in r:
+            continue
+        gp = r["grammar_point_id"]
+        t = tg.get(gp, {})
+        for s in r.get("kept", []):
+            s = s.strip()
+            if not s or (gp, s) in seen:
+                continue
+            seen.add((gp, s))
+            rows.append({"japanese": s, "grammar_point_id": gp,
+                         "pattern": t.get("pattern", ""),
+                         "meaning_en": t.get("meaning_en", ""),
+                         "frame": t.get("frame", "")})
+    if limit:
+        rows = rows[:limit]
+    print(f"{label}: judging {len(rows)} generated sentences with {judge}")
+    out = os.path.join(d, f"verdicts_{judge}.jsonl")
     log = open(out, "a", encoding="utf-8")
-    t0, n = time.time(), 0
-    for row in frozen:
-        gp = row["grammar_point_id"]
-        t = dict(tg.get(gp) or {})
-        t["grammar_point_id"] = gp
-        for word in row["required"]:
-            try:
-                got, usage, content = None, None, None
-                # one sentence, one required word: same shape as the live generator,
-                # so the only thing held fixed is WHICH words, not how many
-                from guardrails import build_user, system_for
-                required = [{"text": word}]
-                el, usage, content = G2.call(system_for(t), build_user(t, required, per_word),
-                                             round(random.uniform(0.7, 1.0), 2))
-                for s in G2.parse(content)[:per_word]:
-                    log.write(json.dumps({
-                        "grammar_point_id": gp, "japanese": s.strip(),
-                        "required_word": word,
-                        "pattern": t.get("pattern", ""),
-                        "meaning_en": t.get("meaning_en", ""),
-                        "frame": t.get("frame", ""),
-                    }, ensure_ascii=False) + "\n")
-                    n += 1
-            except Exception as e:
-                print(f"  {gp} {word}: {type(e).__name__} {str(e)[:80]}", flush=True)
+    t0, cost, n, nod = time.time(), 0.0, 0, 0
+    for k in range(0, len(rows), 6):
+        b = rows[k:k + 6]
+        try:
+            res, usage, finish = RJ.judge_batch(b, model=judge)
+            cost += float(usage.get("cost", 0) or 0)
+            for src_r, v in zip(b, res):
+                if v is None:
+                    nod += 1; continue
+                rec = dict(src_r)
+                rec["model"] = judge
+                rec.update({k2: v[k2] for k2 in RJ.DIMENSIONS})
+                rec.update({"span": v.get("span", ""), "reason": v.get("reason", ""),
+                            "reason_codes": v["reason_codes"],
+                            "failed_dimensions": v["failed_dimensions"],
+                            "overall": v["overall"], "span_ok": v["span_ok"],
+                            "span_pattern_ok": v.get("span_pattern_ok"),
+                            "evidence_conflict": v.get("evidence_conflict", False)})
+                log.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                n += 1
+        except Exception as e:
+            print(f"  {type(e).__name__}: {str(e)[:110]}", flush=True)
+            time.sleep(3)
         log.flush()
-        print(f"  {gp:<38} {n} sentences  {time.time()-t0:.0f}s", flush=True)
+        if (k // 6) % 20 == 0:
+            print(f"    b{k//6+1:>4}  {n} written  {time.time()-t0:.0f}s", flush=True)
     log.close()
-    print(f"wrote {n} -> {out}")
-    print(f"next: judge it, then `diff` against another label's gen file")
-    return out
+    print(f"  wrote {n}  no_verdict {nod}  ${cost:.5f}  {time.time()-t0:.0f}s")
 
 
 # ---------------------------------------------------------------- diff
@@ -302,7 +355,20 @@ def diff(a, b):
             p = _mcnemar_exact(b1, b2)
             print(f"     McNemar exact p = {p:.2e}   {'SIGNIFICANT' if p < 0.05 else 'not significant'}")
 
-    # per-point movement, which is what a worklist is built from
+    # per-point movement, and a CLUSTERED analysis.
+    #
+    # The 938 sentences are not 938 independent samples: they come from 77 grammar
+    # points that share regexes, frames and vocabulary constraints, so failures within
+    # a point are correlated and a sentence-level p-value overstates the evidence for
+    # generalising across points. Measured on luna-vs-haiku, clustering costs
+    # target_used about an order of magnitude (p=1.2e-02 -> 4.1e-02) and overall
+    # almost nothing (2.8e-14 -> 1.2e-06). Both survive; the honest number is the
+    # clustered one.
+    #
+    # Direction convention, which is easy to get backwards:
+    #   v[0] = luna fails, haiku passes     (luna is HARSHER here)
+    #   v[1] = haiku fails, luna passes     (haiku is HARSHER here)
+    # so a point counts toward "A better" when v[1] > v[0].
     per = collections.defaultdict(lambda: [0, 0, 0])
     for k in both:
         gp = k[0]
@@ -311,11 +377,47 @@ def diff(a, b):
         per[gp][0] += x and not y
         per[gp][1] += y and not x
         per[gp][2] += 1
-    moved = [(gp, f, w, n) for gp, (f, w, n) in per.items() if f or w]
-    moved.sort(key=lambda x: -(x[1] + x[2]))
-    print(f"\n  points whose target_used moved: {len(moved)}/{len(per)}")
-    for gp, f, w, n in moved[:14]:
-        print(f"     {gp:<38} +{f} fixed  -{w} broken   (n={n})")
+
+    a_better = sorted((gp for gp, v in per.items() if v[1] > v[0]),
+                      key=lambda g: -(per[g][1] - per[g][0]))
+    b_better = sorted((gp for gp, v in per.items() if v[0] > v[1]),
+                      key=lambda g: -(per[g][0] - per[g][1]))
+    tied = [gp for gp, v in per.items() if v[0] == v[1]]
+    print(f"\n  target_used by grammar point: A better on {len(a_better)}, "
+          f"B better on {len(b_better)}, tied {len(tied)}  (of {len(per)})")
+    m = len(a_better) + len(b_better)
+    if m:
+        print(f"     sign test over the {m} differing points: "
+              f"p = {_sign_test(len(a_better), m):.3e}")
+    if a_better:
+        print(f"     A better: " + ", ".join(f"{g} +{per[g][1]-per[g][0]}"
+                                             for g in a_better[:6]))
+    if b_better:
+        print(f"     B better: " + ", ".join(f"{g} +{per[g][0]-per[g][1]}"
+                                             for g in b_better[:6]))
+
+    # clustered bootstrap: resample POINTS, not sentences
+    pts = list(per.values())
+    rnd = random.Random(0)
+    d = []
+    for _ in range(5000):
+        s = [rnd.choice(pts) for _ in pts]
+        d.append(sum(v[0] for v in s) - sum(v[1] for v in s))
+    d.sort()
+    lo, hi = d[int(.025 * len(d))], d[int(.975 * len(d))]
+    p_le0 = sum(1 for x in d if x <= 0) / len(d)
+    print(f"     clustered bootstrap (resampling POINTS): mean {sum(d)/len(d):+.1f} "
+          f"95% CI [{lo:+d}, {hi:+d}]  P(diff<=0) = {p_le0:.4f}")
+    print(f"     -> {len(a_better)} vs {len(b_better)} points, not "
+          f"{len(both)} sentences, is the count that generalises")
+
+
+def _sign_test(k, n):
+    """Two-sided exact sign test: k successes out of n."""
+    from math import comb
+    if n == 0:
+        return 1.0
+    return min(1.0, 2 * sum(comb(n, i) for i in range(0, min(k, n - k) + 1)) / 2 ** n)
 
 
 def _mcnemar_exact(b, c):
@@ -352,6 +454,11 @@ def main():
     p.add_argument("--points", type=int, default=0)
     p.add_argument("--per-word", type=int, default=1)
 
+    p = sub.add_parser("judge-gen", help="judge a gen run's output")
+    p.add_argument("--label", required=True)
+    p.add_argument("--judge", default="openai/gpt-6-luna")
+    p.add_argument("--limit", type=int, default=0)
+
     p = sub.add_parser("diff", help="paired comparison of two labels")
     p.add_argument("a"); p.add_argument("b")
 
@@ -362,6 +469,8 @@ def main():
         run_judge(a.label, a.judge, a.limit, a.reuse)
     elif a.cmd == "gen":
         run_gen(a.label, a.judge, a.model, a.points, a.per_word)
+    elif a.cmd == "judge-gen":
+        judge_gen(a.label, a.judge, a.limit)
     elif a.cmd == "diff":
         diff(a.a, a.b)
 
