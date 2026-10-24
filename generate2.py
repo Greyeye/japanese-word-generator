@@ -101,7 +101,10 @@ def parse(txt):
 def main():
     global API, TOKEN, MODEL
     # endpoint/model overrides so the same guarded loop can drive a remote API.
-    #   --base https://openrouter.ai/api/v1 --key $OPENROUTER_API_KEY --model openai/gpt-6-luna
+    #   --base https://openrouter.ai/api --key $OPENROUTER_API_KEY --model openai/gpt-6-luna
+    # NOTE: pass the base WITHOUT /v1. call() appends "/v1/chat/completions", so
+    #       ".../api/v1" builds ".../api/v1/v1/chat/completions" and OpenRouter
+    #       answers 404 -- which reads as "no such model" for every model at once.
     _b = arg("--base")
     if _b:
         API = _b

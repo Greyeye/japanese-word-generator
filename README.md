@@ -54,7 +54,79 @@ Nothing generated is written into the repo, and `.gitignore` catches strays.
 
 ---
 
-## Stages
+## Agent-led generation and review (preferred)
+
+The preferred path is now **file-based generation and review by the active assistant**,
+not scripts calling a model API. A Codex-backed chat can produce and review batches
+through its normal session; this repository does not read subscription credentials,
+start a proxy, or translate subscription access into an API key.
+
+`agent_pipeline.py` prepares constrained jobs, ingests the assistant's sentence files,
+exports blind review tasks, and imports dimension-specific review files. `AGENTS.md`
+contains the working instructions. Run `python agent_pipeline.py --help` for commands.
+
+- Keep the existing curated word pools and grammar targets. Each generation slot names
+  its required word explicitly; record the pairing rather than infer intent afterward.
+- Scripts do deterministic checks only: required-word presence, target regex/POS checks,
+  exact-character duplication, schema checks, and content/provenance verification.
+  Passing those checks is **not** a claim of natural or correct Japanese.
+- Review separately on grammaticality, coherence, target usage, naturalness, level,
+  and register. Review packets omit generator reasoning and previous judge verdicts.
+- Record the actual actor/model/provider supplied by the session. Another pass by the
+  same model is **self-review**, not independent validation or human ground truth.
+- A single model review does not earn `validated`; retained rows remain `needs_review`.
+- All run artifacts stay outside the repository. No generation/review command uploads
+  to Supabase. The existing corpus upload remains held pending a separate decision.
+
+### Shared exact-string registry
+
+`agent_pipeline.py ingest` now requires the shared local SQLite corpus registry,
+by default `H:/jlpt/runs/sentence_registry.sqlite3`. Missing/uninitialized databases
+fail closed; there is no registry bypass. Before first use, an operator explicitly
+lists and seeds every authoritative corpus (replace these placeholder paths):
+
+```bash
+python sentence_registry.py check --sources H:/jlpt/runs/CORPUS_A.jsonl H:/jlpt/runs/CORPUS_B.jsonl
+python sentence_registry.py init --registry H:/jlpt/runs/sentence_registry.sqlite3
+python sentence_registry.py seed --registry H:/jlpt/runs/sentence_registry.sqlite3 --sources H:/jlpt/runs/CORPUS_A.jsonl H:/jlpt/runs/CORPUS_B.jsonl
+python sentence_registry.py status --registry H:/jlpt/runs/sentence_registry.sqlite3
+python agent_pipeline.py ingest --jobs H:/jlpt/runs/NEW/jobs --source H:/jlpt/runs/NEW/responses.jsonl --out H:/jlpt/runs/NEW/ingested --registry H:/jlpt/runs/sentence_registry.sqlite3 --actor ACTUAL_SESSION --model ACTUAL_OR_UNKNOWN_MODEL --provider ACTUAL_PROVIDER
+```
+
+Seeding validates ALL UTF-8 JSONL sources before mutation; each row requires a
+nonempty string `japanese` field. Reseeding is idempotent, reports inserted/existing
+counts and retains first-source path/hash/line. `init` refuses existing files.
+`status` and `check` are read-only; `check` audits within/across supplied corpora
+without a registry and exits 1 on duplicates (2 for invalid input).
+
+Mechanically valid candidates atomically reserve exact text using SQLite binary
+uniqueness, across workers and runs sharing that file. Punctuation, whitespace and
+Unicode composition are NOT normalized; this is not semantic dedupe. Collision
+audits retain prior origins; manifests pin registry code and record registry path
+and claim IDs. No model API, remote database or subscription credentials are used.
+
+Claims commit BEFORE output publication and remain reserved on publish/crash or
+review failure. Only an identical jobs/slot/source/output/provenance retry may
+recover its own claim; existing output bundles are always immutable and refused
+before any registry writes. Never automatically release claims. A crash may leave
+an incomplete output needing operator investigation. Use a local filesystem with
+SQLite locking; separate registry copies cannot enforce shared uniqueness.
+
+Duplicates are rejected after generation, before review: the assistant must
+regenerate rejects into a new source/output (fresh jobs as needed). This does not
+prevent a model from emitting duplicates. Accepted siblings cannot be republished
+under another output identity. Tests explicitly initialize isolated empty scratch
+registries via `--registry` and never touch the production registry:
+
+```bash
+python -W error -m unittest test_sentence_registry test_agent_pipeline -v
+```
+
+The scripts below are retained for historical reproducibility. Their API-based generation
+and judging commands are **legacy**, not the default workflow. Embedding and database
+operations remain separate, explicit steps.
+
+## Legacy stages
 
 | stage | script | what it does |
 |---|---|---|
